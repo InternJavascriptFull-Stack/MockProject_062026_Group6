@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "Prisma.prisma",
+    "bradlc.vscode-tailwindcss",
+    "eamodio.gitlens",
+    "christian-kohler.path-intellisense",
+    "formulahendry.auto-close-tag",
+    "formulahendry.auto-complete-tag",
+    "dsznajder.es7-react-js-snippets",
+    "rvest.vs-code-prettier-eslint",
+    "YoavBls.pretty-ts-errors",
+    "aaron-bond.better-comments"
+  ]
+}
