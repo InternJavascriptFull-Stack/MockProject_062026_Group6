@@ -20,10 +20,13 @@ Welcome to the official repository for the Nursing Home Management System. This 
 
 ---
 
-## Repository Directory Structure (Simple Monorepo)
+## Repository Directory Structure
 
 ```text
 MockProject_Group6/           # Git Repository Root
+├── .github/                  # CI/CD Workflows & actions
+│   ├── setup-environment/    # Composite setup action
+│   └── workflows/            # GitHub Actions (pr.yml, security.yml)
 ├── apps/
 │   ├── frontend/             # ReactJS (Vite, Tailwind, Zustand)
 │   │   ├── src/
@@ -34,16 +37,23 @@ MockProject_Group6/           # Git Repository Root
 │       ├── package.json
 │       └── tsconfig.json
 ├── packages/
-│   └── shared-types/         # Shared package for types, DTO interfaces, validation
-│       ├── index.ts
+│   ├── eslint-config/        # Shared ESLint configuration rules
+│   │   ├── src/              # Rules for react, backend, architecture, base
+│   │   └── package.json
+│   └── typescript-config/    # Shared TypeScript base configs
+│       ├── nestjs.json
+│       ├── react.json
 │       └── package.json
 ├── .vscode/                  # Shared IDE configurations
 │   ├── extensions.json
 │   └── settings.json
+├── .ncurc.json               # npm-check-updates configuration
+├── .syncpackrc               # syncpack package.json constraint configuration
 ├── docker-compose.yml        # Docker SQL Server 2022 Express config
 ├── .env.example              # Environment variables template
 ├── .gitignore                # Git ignore rules
 ├── package.json              # Root package defining npm workspaces
+├── turbo.json                # Turborepo workspace orchestration
 └── README.md                 # This file
 ```
 
