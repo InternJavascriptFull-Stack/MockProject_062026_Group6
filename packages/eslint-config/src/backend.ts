@@ -12,4 +12,12 @@ export default defineConfig([
       },
     },
   },
+  {
+    rules: {
+      "@typescript-eslint/no-extraneous-class": [
+        "error",
+        { allowWithDecorator: true },
+      ],
+    },
+  },
 ]);

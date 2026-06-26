@@ -12,7 +12,7 @@ export default defineConfig([
     files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.js", "**/*.mjs"],
     extends: [
       eslintJs.configs.recommended,
-      tseslint.configs.recommendedTypeChecked,
+      tseslint.configs.strictTypeChecked,
       tseslint.configs.stylisticTypeChecked,
       importX.flatConfigs.recommended,
       importX.flatConfigs.typescript,
@@ -43,9 +43,9 @@ export default defineConfig([
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/consistent-type-imports": [
