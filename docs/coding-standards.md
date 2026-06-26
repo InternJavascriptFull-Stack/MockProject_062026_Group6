@@ -246,3 +246,43 @@ We follow the **Conventional Commits** specification for all commit messages. Th
 - `fix(backend): resolve token verification delay`
 - `docs: update setup instructions in README`
 - `chore(deps): upgrade prisma to latest version`
+
+---
+
+## VIII. Strict TypeScript & ESLint Standards
+
+We enforce a zero-warning, highly strict TypeScript and ESLint configuration to maintain maximum type safety and prevent runtime errors.
+
+### 1. TypeScript Strict Compiler Options
+
+All packages and applications extend `@nursinghome/typescript-config/base`. The following compiler checks are active:
+
+- **`strict: true`**: Enforces strict null checking, implicit any checks, and strict function types.
+- **`noUncheckedIndexedAccess: true`**: Accessing object or array keys via indexes (e.g. `items[i]`) always returns `T | undefined`, forcing you to check for existence first.
+- **`exactOptionalPropertyTypes: true`**: Disallows explicitly assigning `undefined` to optional properties.
+- **`verbatimModuleSyntax: true`**: Enforces explicit type imports (`import type`) to prevent bundling side effects (except in NestJS due to decorator metadata).
+
+### 2. ESLint Rules
+
+We use TypeScript ESLint's **`strictTypeChecked`** rules. The following custom rules are configured:
+
+- **No Explicit Any (`@typescript-eslint/no-explicit-any`)**: Set to `"error"`. Using `any` is strictly prohibited. Use `unknown` or define appropriate interfaces.
+- **Unused Variables (`@typescript-eslint/no-unused-vars`)**: Set to `"error"`. Clean up any unused variables or prefix them with `_` if they are required by signatures.
+- **Extraneous Empty Classes (`@typescript-eslint/no-extraneous-class`)**: Set to `"error"`, but configured on the backend to allow classes annotated with decorators (e.g., NestJS modules and controllers):
+
+```typescript
+"@typescript-eslint/no-extraneous-class": ["error", { allowWithDecorator: true }]
+```
+
+---
+
+## IX. Path Aliases (`@/*`)
+
+To keep imports clean and avoid long relative path sequences (e.g. `../../components/Button`), use the `@/*` alias:
+
+- **Standard**: `@/` maps to the `src/` directory of the current application or package.
+- **Usage**: `import { Button } from "@/components/Button";`
+- **Resolution**:
+- **Frontend (React/Vite)**: Vite resolves these natively using `resolve: { tsconfigPaths: true }`.
+- **Backend (NestJS)**: Resolved at runtime in development via `ts-node` and in production using `--import tsconfig-paths/register.js`.
+- **ESLint**: Integrated with `eslint-import-resolver-typescript` to ensure linter paths compile cleanly.

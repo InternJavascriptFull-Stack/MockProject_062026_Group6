@@ -93,23 +93,48 @@ To initialize the SQL Server database schema from your Prisma models, run:
 npx prisma db push
 ```
 
-### 5. Running the applications
+## Running the applications
 
-To run the packages in the workspace, use npm workspaces:
+### 5. Running the applications in Development Mode
 
-- Run the Backend:
+You can run both the frontend and backend applications simultaneously in development mode with a single command from the root of the repository:
 
-  ```bash
-  npm run start:dev -w apps/backend
-  ```
+```bash
+npm run dev
+```
 
-- Run the Frontend:
+This uses Turborepo to run the dev tasks in parallel:
 
-  ```bash
-  npm run dev -w apps/frontend
-  ```
+- **Backend (NestJS)**: Starts on `http://localhost:3000`
+- **Frontend (React/Vite)**: Starts on `http://localhost:3001` (with all `/api` requests proxied to the backend on port 3000 to prevent CORS issues)
 
-### 6. Shutting down the database
+Alternatively, you can run individual workspaces:
+
+- Run the Backend only: `npm run dev -w apps/backend`
+- Run the Frontend only: `npm run dev -w apps/frontend`
+
+### 6. Code Quality & Formatting
+
+To run the linter across the entire monorepo:
+
+```bash
+npm run lint
+```
+
+To format code with Prettier:
+
+```bash
+npm run format
+```
+
+### 7. Path Aliases (`@/*`)
+
+Both frontend and backend packages are configured to use the `@/*` alias pointing to the package's local `src/*` folder.
+
+- **Usage example**: `import { MyComponent } from "@/components/MyComponent";`
+- **Resolution**: Vite resolves these natively using `tsconfigPaths: true` during build/development. NestJS resolves them dynamically at runtime in production via `--import tsconfig-paths/register.js`.
+
+### 8. Shutting down the database
 
 To stop the SQL Server container when you are finished coding:
 
