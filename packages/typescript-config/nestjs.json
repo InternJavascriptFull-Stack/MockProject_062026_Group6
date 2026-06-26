@@ -7,6 +7,10 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noEmit": false,
-    "outDir": "./dist"
+    "verbatimModuleSyntax": false,
+    "isolatedModules": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false
   }
 }
