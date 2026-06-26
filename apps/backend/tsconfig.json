@@ -1,0 +1,12 @@
+{
+  "extends": "@nursinghome/typescript-config/nestjs",
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
+    "removeComments": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "types": ["node", "jest"]
+  },
+  "exclude": ["node_modules", "dist"]
+}
