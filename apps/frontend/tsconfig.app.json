@@ -1,0 +1,14 @@
+{
+  "extends": "@nursinghome/typescript-config/react",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "types": ["vite/client"],
+    "moduleDetection": "force",
+    "erasableSyntaxOnly": true,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

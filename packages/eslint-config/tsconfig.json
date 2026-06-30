@@ -1,0 +1,15 @@
+{
+  "extends": "@nursinghome/typescript-config/base",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "declaration": true,
+    "declarationMap": false,
+    "noEmit": false,
+    "types": ["node"],
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

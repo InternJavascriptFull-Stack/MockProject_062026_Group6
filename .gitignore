@@ -5,6 +5,7 @@ node_modules/
 
 # Build & Cache Output
 # Next.js
+dist/
 .next/
 out/
 build/
@@ -66,3 +67,10 @@ CLAUDE.md
 # Turborepo
 .turbo
 .vercel
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

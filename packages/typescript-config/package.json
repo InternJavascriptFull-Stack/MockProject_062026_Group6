@@ -1,0 +1,10 @@
+{
+  "name": "@nursinghome/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./base": "./base.json",
+    "./react": "./react.json",
+    "./nestjs": "./nestjs.json"
+  }
+}
