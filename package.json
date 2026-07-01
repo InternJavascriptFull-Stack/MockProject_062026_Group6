@@ -1,20 +1,32 @@
 {
-  "name": "mockproject-group6",
-  "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "lint": "eslint .",
-    "format": "prettier --write ."
-  },
-  "engines": {
-    "node": ">=24.0.0"
-  },
-  "devDependencies": {
-    "prettier": "^3.8.4",
-    "prettier-plugin-tailwindcss": "^0.8.0"
-  }
+    "name": "mockproject-group6",
+    "private": true,
+    "type": "module",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "npm run dev -w frontend",
+        "dev:frontend": "npm run dev -w frontend",
+        "dev:backend": "npm run dev -w backend",
+        "build": "npm run build -w frontend",
+        "build:all": "npm run build --workspaces --if-present",
+        "lint": "npm run lint --workspaces --if-present",
+        "lint:fix": "npm run lint:fix --workspaces --if-present",
+        "format": "prettier --write ."
+    },
+    "engines": {
+        "node": ">=24.0.0",
+        "npm": ">=10.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^24.13.2",
+        "eslint": "^9",
+        "jiti": "^2.7.0",
+        "prettier": "^3.8.4",
+        "prettier-plugin-tailwindcss": "^0.8.0",
+        "syncpack": "^15.3.2",
+        "typescript": "^5.9.3"
+    }
 }
