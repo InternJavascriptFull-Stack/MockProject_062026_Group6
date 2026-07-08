@@ -20,13 +20,17 @@ export function ActionFooter() {
         <Button
           variant="outline"
           className="border-brand-border flex-1 cursor-pointer text-sm font-semibold shadow-sm hover:bg-slate-50 sm:flex-initial"
-          onClick={() => alert("Add Progress Note")}
+          onClick={() => {
+            alert("Add Progress Note");
+          }}
         >
           Add Progress Note
         </Button>
         <Button
           className="bg-brand-primary-dark flex-1 cursor-pointer text-sm font-semibold text-white shadow-sm hover:opacity-95 sm:flex-initial"
-          onClick={() => alert("Update Care Plan")}
+          onClick={() => {
+            alert("Update Care Plan");
+          }}
         >
           Update Care Plan
         </Button>

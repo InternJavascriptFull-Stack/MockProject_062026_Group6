@@ -30,7 +30,9 @@ export function CarePlanTabs() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+              }}
               className={`relative cursor-pointer border-b-2 py-4.5 text-sm font-semibold tracking-wide transition-all ${
                 isActive
                   ? "border-brand-primary-dark text-brand-primary-dark font-bold"
@@ -47,14 +49,18 @@ export function CarePlanTabs() {
       <div className="hidden items-center gap-2 md:flex">
         <button
           type="button"
-          onClick={() => alert("Print Care Plan")}
+          onClick={() => {
+            alert("Print Care Plan");
+          }}
           className="border-brand-border text-brand-primary-dark cursor-pointer rounded-lg border p-2 shadow-sm transition-colors hover:bg-slate-50"
         >
           <Printer className="h-4.5 w-4.5 stroke-[2.2]" />
         </button>
         <button
           type="button"
-          onClick={() => alert("Share Care Plan")}
+          onClick={() => {
+            alert("Share Care Plan");
+          }}
           className="border-brand-border text-brand-primary-dark cursor-pointer rounded-lg border p-2 shadow-sm transition-colors hover:bg-slate-50"
         >
           <Share2 className="h-4.5 w-4.5 stroke-[2.2]" />

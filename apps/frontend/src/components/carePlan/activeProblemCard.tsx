@@ -53,7 +53,9 @@ export function ActiveProblemCard() {
         </span>
         <button
           type="button"
-          onClick={() => alert("Edit Active Problem")}
+          onClick={() => {
+            alert("Edit Active Problem");
+          }}
           className="text-brand-primary-dark cursor-pointer rounded p-1 transition-colors hover:bg-slate-200/60"
         >
           <Edit3 className="h-3.5 w-3.5" />

@@ -28,7 +28,7 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
             "bg-brand-primary-light h-full w-full flex-1 transition-all duration-300",
             barClassName,
           )}
-          style={{ transform: `translateX(-${100 - percent}%)` }}
+          style={{ transform: `translateX(-${(100 - percent).toString()}%)` }}
         />
       </div>
     );

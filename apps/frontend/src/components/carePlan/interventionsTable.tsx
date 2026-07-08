@@ -87,7 +87,9 @@ export function InterventionsTable() {
           Interventions & Tasks
         </h3>
         <Button
-          onClick={() => alert("Add Task")}
+          onClick={() => {
+            alert("Add Task");
+          }}
           className="text-brand-primary-dark border-brand-border flex cursor-pointer items-center gap-1 border bg-slate-50 px-3 py-1.5 text-xs font-bold tracking-wide hover:bg-slate-100"
         >
           <Plus className="h-4.5 w-4.5 stroke-[2.2]" />
@@ -122,7 +124,9 @@ export function InterventionsTable() {
                   <div className="flex items-center justify-center">
                     <Checkbox
                       checked={task.done}
-                      onCheckedChange={() => toggleTask(task.id)}
+                      onCheckedChange={() => {
+                        toggleTask(task.id);
+                      }}
                     />
                   </div>
                 </td>
@@ -183,14 +187,18 @@ export function InterventionsTable() {
                   <div className="flex items-center justify-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => alert(`Edit: ${task.title}`)}
+                      onClick={() => {
+                        alert(`Edit: ${task.title}`);
+                      }}
                       className="text-brand-primary-dark/70 hover:text-brand-primary-dark cursor-pointer rounded p-1.5 transition-colors hover:bg-slate-100"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => alert(`Menu: ${task.title}`)}
+                      onClick={() => {
+                        alert(`Menu: ${task.title}`);
+                      }}
                       className="text-brand-primary-dark/70 hover:text-brand-primary-dark cursor-pointer rounded p-1.5 transition-colors hover:bg-slate-100"
                     >
                       <MoreHorizontal className="h-3.5 w-3.5" />
@@ -207,7 +215,9 @@ export function InterventionsTable() {
       <div className="border-brand-border/60 border-t bg-slate-50/50 p-4 text-center">
         <button
           type="button"
-          onClick={() => alert("Loading all interventions...")}
+          onClick={() => {
+            alert("Loading all interventions...");
+          }}
           className="text-brand-primary-dark cursor-pointer text-xs font-bold tracking-wide hover:underline"
         >
           Show All Interventions (12)
