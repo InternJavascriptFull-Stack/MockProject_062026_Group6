@@ -4,7 +4,11 @@ import { AppLayout } from "./layouts/appLayout";
 import AuthLayout from "./layouts/authLayout";
 import { DashboardPage } from "./pages/dashboardPage";
 import { LandingPage } from "./pages/landingPage";
+import { CarePlanListPage } from "./pages/carePlan/carePlanListPage";
+import { CreateCarePlanPage } from "./pages/carePlan/createCarePlanPage";
 import { CarePlanPage } from "./pages/carePlan/carePlanPage";
+import { DonReviewPage } from "./pages/carePlan/donReviewPage";
+import { IdtAcknowledgmentPage } from "./pages/carePlan/idtAcknowledgmentPage";
 import { EmarPage } from "./pages/emar/emarPage";
 import EnterNewPass from "./pages/login/enterNewPass";
 import ForgotPass from "./pages/login/forgotPass";
@@ -27,7 +31,11 @@ export function App() {
                 <Route path="residents/reception" element={<ResidentReceptionPage />} />
                 <Route path="doctor-schedule" element={<DoctorsSchedulePage />} />
                 <Route path="emar" element={<EmarPage />} />
-                <Route path="care-plan" element={<CarePlanPage />} />
+                <Route path="care-plans" element={<CarePlanListPage />} />
+                <Route path="care-plans/new" element={<CreateCarePlanPage />} />
+                <Route path="care-plans/:id" element={<CarePlanPage />} />
+                <Route path="care-plans/:id/review" element={<DonReviewPage />} />
+                <Route path="care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />
             </Route>
 
             <Route path="login" element={<Login />} />
