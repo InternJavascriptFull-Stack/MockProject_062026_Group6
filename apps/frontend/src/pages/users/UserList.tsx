@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, CheckSquare, Clock, XSquare, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,36 +10,65 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/authUi/select';
-
-// --- Mock Data ---
-const mockUsers = [
-  { id: 1, name: 'Priya Shah', email: 'priya.shah@nhms.io', phone: '—', role: 'Admission', status: 'Invited', mfa: 'Not-set', lastLogin: '—' },
-  { id: 2, name: 'Denise Carter', email: 'denise.carter@nhms.io', phone: '+1 415-555-0142', role: 'DON', status: 'Active', mfa: 'Enabled', lastLogin: '2026-07-03 08:12' },
-  { id: 3, name: 'Anna Lee', email: 'anna.lee@nhms.io', phone: '+1 415-555-0198', role: 'Nurse', status: 'Active', mfa: 'Enabled', lastLogin: '2026-07-03 07:40' },
-  { id: 4, name: 'Marcus Rivera', email: 'marcus.rivera@nhms.io', phone: '+1 415-555-0173', role: 'CNA', status: 'Active', mfa: 'Enabled', lastLogin: '2026-07-02 22:05' },
-  { id: 5, name: 'Karen Wu', email: 'karen.wu@nhms.io', phone: '+1 415-555-0166', role: 'Billing', status: 'Suspended', mfa: 'Enabled', lastLogin: '2026-06-20 14:22' },
-  { id: 6, name: 'Tom Becker', email: 'tom.becker@nhms.io', phone: '+1 415-555-0184', role: 'Nurse', status: 'Deactivated', mfa: 'Enabled', lastLogin: '2026-05-15 10:00' },
-  { id: 7, name: 'Victor Alvarez', email: 'victor.alvarez@nhms.io', phone: '+1 415-555-0110', role: 'System Admin', status: 'Active', mfa: 'Enabled', lastLogin: '2026-07-03 09:00' },
-];
+import { useQuery } from '@tanstack/react-query';
+import { userService } from '@/services/user';
 
 export default function UserList() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [page, setPage] = useState(1);
+
+  // Simple debounce for search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1); // Reset page on search
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['users', page, 10, debouncedSearch],
+    queryFn: () => userService.getUsers(page, 10, debouncedSearch),
+  });
+
+  const users = data?.data || [];
+  const meta = data?.meta || { total: 0 };
+
+  // Filter local users by role/status for now since the API only searches by string.
+  // In a real app, roleId/status would be passed to API.
+  const filteredUsers = users.filter((user: any) => {
+    let matchRole = true;
+    let matchStatus = true;
+    if (roleFilter !== 'All') {
+      matchRole = user.role?.roleName === roleFilter;
+    }
+    if (statusFilter !== 'All') {
+      // API returns ACTIVE/INACTIVE/LOCKED, filter maps slightly differently or directly
+      // Mapping from UI filter to API status:
+      // Active -> ACTIVE
+      // Suspended / Deactivated -> INACTIVE / LOCKED
+      // Invited -> N/A (We'll assume ACTIVE for now, or match exactly)
+      if (statusFilter === 'Active') matchStatus = user.status === 'ACTIVE';
+      else if (statusFilter === 'Suspended') matchStatus = user.status === 'INACTIVE';
+      else if (statusFilter === 'Deactivated') matchStatus = user.status === 'LOCKED';
+      else matchStatus = user.status === statusFilter.toUpperCase();
+    }
+    return matchRole && matchStatus;
+  });
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
-      case 'Invited':
-        return <Badge variant="warning">Invited</Badge>;
-      case 'Active':
+      case 'ACTIVE':
         return <Badge variant="priority">Active</Badge>;
-      case 'Suspended':
-        return <Badge variant="alert">Suspended</Badge>;
-      case 'Deactivated':
-        return <Badge variant="muted">Deactivated</Badge>;
+      case 'INACTIVE':
+        return <Badge variant="alert">Inactive</Badge>;
+      case 'LOCKED':
+        return <Badge variant="muted">Locked</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -72,7 +101,7 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Total Users</p>
-              <p className="text-2xl font-bold text-slate-900">7</p>
+              <p className="text-2xl font-bold text-slate-900">{meta.total}</p>
             </div>
           </CardContent>
         </Card>
@@ -84,7 +113,7 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Active</p>
-              <p className="text-2xl font-bold text-slate-900">4</p>
+              <p className="text-2xl font-bold text-slate-900">-</p>
             </div>
           </CardContent>
         </Card>
@@ -96,7 +125,7 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Invited</p>
-              <p className="text-2xl font-bold text-slate-900">1</p>
+              <p className="text-2xl font-bold text-slate-900">-</p>
             </div>
           </CardContent>
         </Card>
@@ -108,7 +137,7 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Suspended / Deactivated</p>
-              <p className="text-2xl font-bold text-slate-900">2</p>
+              <p className="text-2xl font-bold text-slate-900">-</p>
             </div>
           </CardContent>
         </Card>
@@ -133,12 +162,11 @@ export default function UserList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All</SelectItem>
-                <SelectItem value="Admission">Admission</SelectItem>
-                <SelectItem value="DON">DON</SelectItem>
-                <SelectItem value="Nurse">Nurse</SelectItem>
-                <SelectItem value="CNA">CNA</SelectItem>
-                <SelectItem value="Billing">Billing</SelectItem>
                 <SelectItem value="System Admin">System Admin</SelectItem>
+                <SelectItem value="Facility Manager">Facility Manager</SelectItem>
+                <SelectItem value="Nurse">Nurse</SelectItem>
+                <SelectItem value="Doctor">Doctor</SelectItem>
+                <SelectItem value="Accountant">Accountant</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -150,7 +178,6 @@ export default function UserList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All</SelectItem>
-                <SelectItem value="Invited">Invited</SelectItem>
                 <SelectItem value="Active">Active</SelectItem>
                 <SelectItem value="Suspended">Suspended</SelectItem>
                 <SelectItem value="Deactivated">Deactivated</SelectItem>
@@ -182,30 +209,48 @@ export default function UserList() {
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">2FA</th>
-              <th className="px-4 py-3">Last Login</th>
               <th className="px-4 py-3 text-right"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {mockUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-slate-900">{user.name}</td>
-                <td className="px-4 py-3 text-slate-500">{user.email}</td>
-                <td className="px-4 py-3 text-slate-500">{user.phone}</td>
-                <td className="px-4 py-3 text-slate-500">{user.role}</td>
-                <td className="px-4 py-3">{renderStatusBadge(user.status)}</td>
-                <td className="px-4 py-3">{renderMFABadge(user.mfa)}</td>
-                <td className="px-4 py-3 text-slate-500">{user.lastLogin}</td>
-                <td className="px-4 py-3 text-right">
-                  <button 
-                    className="text-blue-600 font-bold hover:text-blue-700 hover:underline"
-                    onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                  >
-                    Edit
-                  </button>
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
+                  Loading users...
                 </td>
               </tr>
-            ))}
+            ) : isError ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-red-500">
+                  Error loading users
+                </td>
+              </tr>
+            ) : filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
+                  No users found
+                </td>
+              </tr>
+            ) : (
+              filteredUsers.map((user: any) => (
+                <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-slate-900">{user.firstName} {user.lastName}</td>
+                  <td className="px-4 py-3 text-slate-500">{user.email}</td>
+                  <td className="px-4 py-3 text-slate-500">{user.phoneNumber || '—'}</td>
+                  <td className="px-4 py-3 text-slate-500">{user.role?.roleName || '—'}</td>
+                  <td className="px-4 py-3">{renderStatusBadge(user.status)}</td>
+                  <td className="px-4 py-3">{renderMFABadge('Not-set')}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button 
+                      className="text-blue-600 font-bold hover:text-blue-700 hover:underline"
+                      onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

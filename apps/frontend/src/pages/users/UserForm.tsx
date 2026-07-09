@@ -14,9 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/authUi/select";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { userService } from "@/services/user";
+import { roleService } from "@/services/role";
 
 const userSchema = z.object({
-  fullName: z.string().min(1, "Full name is required"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   email: z.string().min(1, "Email is required").email("Must be a valid email (RFC-5322)"),
   phone: z
     .string()
@@ -34,18 +38,31 @@ export default function UserForm() {
   const { id } = useParams();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const { data: roles } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => roleService.getRoles()
+  });
+
+  const { data: userData, isLoading: isUserLoading } = useQuery({
+    queryKey: ['user', id],
+    queryFn: () => userService.getUserById(id!),
+    enabled: isEditMode
+  });
 
   const {
     register,
     handleSubmit,
     control,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      fullName: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
       role: "",
@@ -53,37 +70,48 @@ export default function UserForm() {
     },
   });
 
-  // Mock fetching data if in Edit Mode
   useEffect(() => {
-    if (isEditMode) {
-      // Mock user data fetch
-      setTimeout(() => {
-        reset({
-          fullName: "Denise Carter",
-          email: "denise.carter@nhms.io",
-          phone: "+14155550142",
-          role: "DON",
-          facility: "None",
-        });
-      }, 500);
+    if (isEditMode && userData) {
+      reset({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        phone: userData.phoneNumber || "",
+        role: userData.roleId?.toString() || "",
+        facility: "None",
+      });
     }
-  }, [isEditMode, reset]);
+  }, [isEditMode, userData, reset]);
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => isEditMode ? userService.updateUser(id!, data) : userService.createUser(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      navigate("/admin/users", { replace: true });
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.message || 'An error occurred');
+    }
+  });
 
   const onSubmit = async (data: UserFormValues) => {
-    setIsSubmitting(true);
-    try {
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log("Form submitted:", data);
-      navigate("/admin/users", { replace: true });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    setErrorMsg('');
+    const payload = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phoneNumber: data.phone || undefined,
+      roleId: parseInt(data.role, 10),
+      status: isEditMode ? userData?.status || 'ACTIVE' : 'ACTIVE'
+    };
+    mutation.mutate(payload as any);
   };
 
-  const statusValue = isEditMode ? "Active" : "Invited";
+  const statusValue = isEditMode ? (userData?.status || 'Loading...') : "ACTIVE";
+
+  if (isEditMode && isUserLoading) {
+    return <div className="p-8 text-center text-slate-500">Loading user data...</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto font-sans">
@@ -104,6 +132,11 @@ export default function UserForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {errorMsg && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-md font-medium text-sm border border-red-200">
+            {errorMsg}
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* ── Left Card (Account Details) ── */}
           <Card className="lg:col-span-2 shadow-sm border-slate-200">
@@ -111,18 +144,33 @@ export default function UserForm() {
               <h2 className="text-lg font-bold text-slate-900 mb-6">Account Details</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {/* Full Name */}
+                {/* First Name */}
                 <div>
                   <Label className="block mb-2 font-semibold text-slate-700">
-                    Full Name <span className="text-red-500">*</span>
+                    First Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    {...register("fullName")}
-                    placeholder="e.g. Priya Shah"
-                    className={errors.fullName ? "border-red-500 focus:ring-red-100" : ""}
+                    {...register("firstName")}
+                    placeholder="e.g. Priya"
+                    className={errors.firstName ? "border-red-500 focus:ring-red-100" : ""}
                   />
-                  {errors.fullName && (
-                    <p className="mt-1.5 text-sm text-red-500 font-medium">{errors.fullName.message}</p>
+                  {errors.firstName && (
+                    <p className="mt-1.5 text-sm text-red-500 font-medium">{errors.firstName.message}</p>
+                  )}
+                </div>
+
+                {/* Last Name */}
+                <div>
+                  <Label className="block mb-2 font-semibold text-slate-700">
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    {...register("lastName")}
+                    placeholder="e.g. Shah"
+                    className={errors.lastName ? "border-red-500 focus:ring-red-100" : ""}
+                  />
+                  {errors.lastName && (
+                    <p className="mt-1.5 text-sm text-red-500 font-medium">{errors.lastName.message}</p>
                   )}
                 </div>
 
@@ -172,23 +220,15 @@ export default function UserForm() {
                           <SelectValue placeholder="Select role..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="CNA">CNA</SelectItem>
-                          <SelectItem value="Nurse">Nurse</SelectItem>
-                          <SelectItem value="DON">DON</SelectItem>
-                          <SelectItem value="NHA">NHA</SelectItem>
-                          <SelectItem value="Admission">Admission</SelectItem>
-                          <SelectItem value="Billing">Billing</SelectItem>
-                          <SelectItem value="System Admin">System Admin</SelectItem>
+                          {roles?.map((r: any) => (
+                            <SelectItem key={r.id} value={r.id.toString()}>{r.roleName}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}
                   />
-                  {errors.role ? (
+                  {errors.role && (
                     <p className="mt-1.5 text-sm text-red-500 font-medium">{errors.role.message}</p>
-                  ) : (
-                    <p className="mt-1.5 text-xs text-slate-500">
-                      Available roles: CNA · Nurse · DON · NHA · Admission · Billing · System Admin
-                    </p>
                   )}
                 </div>
 
@@ -266,10 +306,10 @@ export default function UserForm() {
           </Button>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={mutation.isPending}
             className="px-6 bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {isSubmitting ? "Saving..." : isEditMode ? "Update User" : "Create User"}
+            {mutation.isPending ? "Saving..." : isEditMode ? "Update User" : "Create User"}
           </Button>
         </div>
       </form>
