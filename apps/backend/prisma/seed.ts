@@ -11,18 +11,51 @@ const prisma = new PrismaClient();
 const BCRYPT_ROUNDS = 12;
 
 async function main() {
-  // ── Roles ──────────────────────────────────────────────────────────────────
-  const adminRole = await prisma.role.upsert({
-    where: { roleName: "Administrator" },
-    update: {},
-    create: { roleName: "Administrator", description: "Full system access" },
-  });
+  const rolesData = [
+    { roleName: "Admission Staff", description: "Manages resident intake: pre-admission screening, admission forms, and profile creation. Full access to M1 registration." },
+    { roleName: "Nurse (RN/LPN)", description: "Performs clinical assessments, drafts and manages care plans, records bedside vitals. Cannot approve care plans (DON)." },
+    { roleName: "CNA", description: "Executes daily assigned tasks and records bedside vitals for assigned residents. Mobile-first view (NFR-04)." },
+    { roleName: "DON (Director of Nursing)", description: "Reviews/approves care plans, oversees incidents with SLA tracking, monitors staffing ratio + census/billing snapshot." },
+    { roleName: "System Admin", description: "Configures facility settings, rates, staffing thresholds, user accounts, and equipment inventory. No clinical access." },
+    { roleName: "Physician", description: "Limited-access external signer. Reviews care plans for residents under their care; e-signs M2-US-10 only." },
+    { roleName: "Dietary", description: "Limited-access external signer. Reviews nutrition-related care plan sections; e-signs M2-US-10 only." }
+  ];
 
-  const nurseRole = await prisma.role.upsert({
-    where: { roleName: "Nurse" },
-    update: {},
-    create: { roleName: "Nurse", description: "Patient care and monitoring" },
-  });
+  const dbRoles: Record<string, any> = {};
+  for (const r of rolesData) {
+    dbRoles[r.roleName] = await prisma.role.upsert({
+      where: { roleName: r.roleName },
+      update: { description: r.description },
+      create: r,
+    });
+  }
+
+  // ── Permissions ────────────────────────────────────────────────────────────
+  const modules = [
+    'ADMIN_CONFIG',
+    'RESIDENT_LIST',
+    'PROFILE_DETAIL',
+    'INITIAL_ASSESSMENT',
+    'CARE_PLAN_LIST',
+    'DON_REVIEW',
+    'BEDSIDE_VITALS',
+    'REPORT_INCIDENT',
+    'INCIDENT_LIST',
+    'IDT_ACKNOWLEDGMENT'
+  ];
+
+  for (const mod of modules) {
+    await prisma.permission.upsert({
+      where: { actionCode: `${mod}_VIEW` },
+      update: {},
+      create: { actionCode: `${mod}_VIEW` }
+    });
+    await prisma.permission.upsert({
+      where: { actionCode: `${mod}_MANAGE` },
+      update: {},
+      create: { actionCode: `${mod}_MANAGE` }
+    });
+  }
 
   // ── Users ──────────────────────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash("Password123!", BCRYPT_ROUNDS);
@@ -40,7 +73,7 @@ async function main() {
       phoneNumber: "+15550001234",
       status: "ACTIVE",
       mfaEnabled: true,
-      roleId: adminRole.id,
+      roleId: dbRoles["System Admin"].id,
     },
   });
 
@@ -58,7 +91,7 @@ async function main() {
       phoneNumber: "+15550005678",
       status: "ACTIVE",
       mfaEnabled: true,
-      roleId: nurseRole.id,
+      roleId: dbRoles["Nurse (RN/LPN)"].id,
     },
   });
 
@@ -75,7 +108,7 @@ async function main() {
       status: "INACTIVE",
       mfaEnabled: false,
       licenseNumber: "ACT123", // one-time activation code
-      roleId: nurseRole.id,
+      roleId: dbRoles["Nurse (RN/LPN)"].id,
     },
   });
 

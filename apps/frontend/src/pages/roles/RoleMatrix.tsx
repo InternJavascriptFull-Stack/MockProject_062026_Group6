@@ -6,41 +6,77 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { roleService } from "@/services/role";
 
+// Predefined screen mapping to match the wireframe exactly
+const SCREENS = [
+  { label: "AD-01...16 Admin Config", mod: "ADMIN_CONFIG" },
+  { label: "M1-US-01 Resident List", mod: "RESIDENT_LIST" },
+  { label: "M1-US-02 Profile Detail", mod: "PROFILE_DETAIL" },
+  { label: "M1-US-06 Initial Assessment", mod: "INITIAL_ASSESSMENT" },
+  { label: "M2-US-01 Care Plan List", mod: "CARE_PLAN_LIST" },
+  { label: "M2-US-04 DON Review (Approve/Reject)", mod: "DON_REVIEW" },
+  { label: "M2-US-06 Bedside Vitals", mod: "BEDSIDE_VITALS" },
+  { label: "M7-US-01 Report Incident", mod: "REPORT_INCIDENT" },
+  { label: "M7-US-04 Incident List", mod: "INCIDENT_LIST" },
+  { label: "M2-US-10 IDT Acknowledgment", mod: "IDT_ACKNOWLEDGMENT" },
+];
+
+const SUB_LABELS: Record<string, Record<string, string>> = {
+  "M1-US-01 Resident List": { "CNA": "assigned" },
+  "M1-US-02 Profile Detail": { "Admission Staff": "Insurance/SSN", "Nurse (RN/LPN)": "+clinical", "CNA": "care subset" },
+  "M2-US-04 DON Review (Approve/Reject)": { "Nurse (RN/LPN)": "status only", "DON (Director of Nursing)": "DON only" },
+  "M2-US-06 Bedside Vitals": { "Nurse (RN/LPN)": "vitals" },
+  "M7-US-04 Incident List": { "DON (Director of Nursing)": "oversight" },
+};
+
+const ORDERED_COLUMNS = [
+  "Admission Staff",
+  "Nurse (RN/LPN)",
+  "CNA",
+  "DON (Director of Nursing)",
+  "System Admin"
+];
+
 // Helper components for cells
 const CellBadge = ({ 
   data, 
   isEditing,
-  onToggle 
+  onToggle,
+  subLabel
 }: { 
   data: { type: string } | null, 
   isEditing: boolean,
-  onToggle: () => void 
+  onToggle: () => void,
+  subLabel?: string
 }) => {
+  const content = (
+    <div className="flex flex-col items-center justify-center gap-1 min-h-[40px]">
+      {!data ? (
+        <span className="text-slate-300 font-bold">—</span>
+      ) : data.type === "Full" ? (
+        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-400 font-semibold rounded-full px-2.5 py-0.5 text-xs">Full</Badge>
+      ) : (
+        <Badge className="bg-blue-100 text-blue-700 border-blue-300 font-semibold rounded-full px-2.5 py-0.5 text-xs">View</Badge>
+      )}
+      {subLabel && data && (
+        <span className="text-[10px] text-slate-500 whitespace-nowrap leading-none mt-0.5">
+          {subLabel}
+        </span>
+      )}
+    </div>
+  );
+
   if (isEditing) {
-    const cycleState = () => {
-      onToggle();
-    };
     return (
       <div 
-        onClick={cycleState}
-        className="cursor-pointer inline-flex items-center justify-center p-1 border rounded-md hover:bg-slate-50 min-w-[60px]"
+        onClick={onToggle}
+        className="cursor-pointer inline-flex items-center justify-center p-1 border border-transparent hover:border-slate-200 rounded-md hover:bg-slate-50 min-w-[60px]"
       >
-        {!data ? (
-          <span className="text-slate-300 font-bold">—</span>
-        ) : data.type === "Full" ? (
-          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-400">Full</Badge>
-        ) : (
-          <Badge className="bg-blue-100 text-blue-700 border-blue-300">View</Badge>
-        )}
+        {content}
       </div>
     );
   }
 
-  if (!data) return <span className="text-slate-300 font-bold">—</span>;
-  if (data.type === "Full") {
-    return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-400">Full</Badge>;
-  }
-  return <Badge className="bg-blue-100 text-blue-700 border-blue-300">View</Badge>;
+  return content;
 };
 
 export default function RoleMatrix() {
@@ -77,15 +113,20 @@ export default function RoleMatrix() {
     enabled: roles.length > 0
   });
 
-  // Extract unique modules (prefixes before _VIEW or _MANAGE)
-  const modules = useMemo(() => {
-    const mods = new Set<string>();
-    permissions.forEach((p: any) => {
-      const prefix = p.actionCode.split('_')[0];
-      if (prefix) mods.add(prefix);
+  // Sort and filter roles to match wireframe
+  const roleDirectory = useMemo(() => {
+    return [...roles].sort((a: any, b: any) => {
+      // Internal first, then IDT
+      const typeA = ["Physician", "Dietary"].includes(a.roleName) ? 1 : 0;
+      const typeB = ["Physician", "Dietary"].includes(b.roleName) ? 1 : 0;
+      return typeA - typeB;
     });
-    return Array.from(mods).sort();
-  }, [permissions]);
+  }, [roles]);
+
+  const columnRoles = useMemo(() => {
+    const cols = ORDERED_COLUMNS.map(name => roles.find((r: any) => r.roleName === name)).filter(Boolean);
+    return cols;
+  }, [roles]);
 
   // Sync server state to local state for editing
   useEffect(() => {
@@ -96,18 +137,18 @@ export default function RoleMatrix() {
         newLocal[role.id.toString()] = {};
         const rolePerms = allRolePerms[role.id.toString()] || [];
         
-        modules.forEach(mod => {
-          const hasManage = rolePerms.includes(`${mod}_MANAGE`);
-          const hasView = rolePerms.includes(`${mod}_VIEW`);
+        SCREENS.forEach(screen => {
+          const hasManage = rolePerms.includes(`${screen.mod}_MANAGE`);
+          const hasView = rolePerms.includes(`${screen.mod}_VIEW`);
           
-          if (hasManage) newLocal[role.id.toString()][mod] = 'Full';
-          else if (hasView) newLocal[role.id.toString()][mod] = 'View';
-          else newLocal[role.id.toString()][mod] = null;
+          if (hasManage) newLocal[role.id.toString()][screen.mod] = 'Full';
+          else if (hasView) newLocal[role.id.toString()][screen.mod] = 'View';
+          else newLocal[role.id.toString()][screen.mod] = null;
         });
       });
       setLocalMatrix(newLocal);
     }
-  }, [allRolePerms, roles, modules, isEditing]);
+  }, [allRolePerms, roles, isEditing]);
 
   const mutation = useMutation({
     mutationFn: async (updatedMatrix: Record<string, Record<string, 'Full' | 'View' | null>>) => {
@@ -116,12 +157,12 @@ export default function RoleMatrix() {
         const roleState = updatedMatrix[roleId];
         const newPermissions: string[] = [];
         
-        modules.forEach(mod => {
-          if (roleState[mod] === 'Full') {
-            newPermissions.push(`${mod}_VIEW`);
-            newPermissions.push(`${mod}_MANAGE`);
-          } else if (roleState[mod] === 'View') {
-            newPermissions.push(`${mod}_VIEW`);
+        SCREENS.forEach(screen => {
+          if (roleState[screen.mod] === 'Full') {
+            newPermissions.push(`${screen.mod}_VIEW`);
+            newPermissions.push(`${screen.mod}_MANAGE`);
+          } else if (roleState[screen.mod] === 'View') {
+            newPermissions.push(`${screen.mod}_VIEW`);
           }
         });
         
@@ -163,7 +204,7 @@ export default function RoleMatrix() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto font-sans">
+    <div className="max-w-[1200px] font-sans">
       {/* Header */}
       <div className="mb-6 flex justify-between items-end">
         <div>
@@ -177,7 +218,8 @@ export default function RoleMatrix() {
             Role &amp; Permission Matrix
           </h1>
           <p className="text-sm text-slate-500">
-            Defines what each role can see and do across NHMS
+            Read-only reference — defines what each role can see and do across NHMS
+            (Master Plan §4A)
           </p>
         </div>
         <div>
@@ -197,24 +239,33 @@ export default function RoleMatrix() {
       {/* Role Directory Section */}
       <div className="mb-10">
         <h2 className="text-xl font-bold text-slate-900 mb-4">Role Directory</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {roles.map((role: any) => (
-            <Card key={role.id} className="shadow-sm border-slate-200">
-              <CardContent className="p-5">
-                <div className="flex flex-col items-start gap-3 mb-3">
-                  <h3 className="font-bold text-slate-900 leading-tight">
-                    {role.roleName}
-                  </h3>
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-100">
-                    Internal
-                  </Badge>
-                </div>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {role.description || "No description provided."}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {roleDirectory.map((role: any) => {
+            const isExternal = ["Physician", "Dietary"].includes(role.roleName);
+            return (
+              <Card key={role.id} className="shadow-sm border-slate-200">
+                <CardContent className="p-5">
+                  <div className="flex flex-col items-start gap-3 mb-3">
+                    <h3 className="font-bold text-slate-900 leading-tight">
+                      {role.roleName}
+                    </h3>
+                    {!isExternal ? (
+                      <Badge className="bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-50 rounded-full font-semibold px-3">
+                        Internal
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-50 rounded-full font-semibold px-3">
+                        External IDT
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[13px] text-slate-600 leading-relaxed">
+                    {role.description || "No description provided."}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
@@ -226,16 +277,14 @@ export default function RoleMatrix() {
         <div className="flex items-center gap-4 text-sm mb-4">
           <span className="font-medium text-slate-700">Legend:</span>
           <div className="flex items-center gap-1">
-            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-400">
-              Full
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-400 font-semibold rounded-full px-2.5 py-0.5 text-xs">
+              Full = create/edit
             </Badge>
-            <span className="text-slate-600 ml-1">= create/edit</span>
           </div>
           <div className="flex items-center gap-1">
-            <Badge className="bg-blue-100 text-blue-700 border-blue-300">
-              View
+            <Badge className="bg-blue-100 text-blue-700 border-blue-300 font-semibold rounded-full px-2.5 py-0.5 text-xs">
+              View = read-only
             </Badge>
-            <span className="text-slate-600 ml-1">= read-only</span>
           </div>
           <div className="flex items-center gap-1 ml-2">
             <span className="text-slate-400 font-bold">—</span>
@@ -247,48 +296,62 @@ export default function RoleMatrix() {
           <table className="w-full text-sm text-center">
             <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
               <tr>
-                <th className="px-4 py-4 text-left font-bold text-slate-900 whitespace-nowrap min-w-[200px]">
-                  Module / Screen
+                <th className="px-6 py-4 text-left font-bold text-slate-900 whitespace-nowrap min-w-[250px]">
+                  Screen
                 </th>
-                {roles.map((role: any) => (
-                  <th key={role.id} className="px-4 py-4 whitespace-nowrap min-w-[120px]">
-                    {role.roleName}
-                  </th>
-                ))}
+                {columnRoles.map((role: any) => {
+                  // Special mapping for headers just to match wireframe exactly
+                  let headerText = role.roleName;
+                  if (headerText === "Admission Staff") headerText = "Admission";
+                  if (headerText === "DON (Director of Nursing)") headerText = "DON";
+                  return (
+                    <th key={role.id} className="px-2 py-4 font-bold text-slate-900 whitespace-nowrap min-w-[120px]">
+                      {headerText}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {modules.map((mod) => (
-                <tr key={mod} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-4 text-left text-slate-700 font-medium whitespace-nowrap">
-                    {mod} Configuration
+              {SCREENS.map((screen) => (
+                <tr key={screen.mod} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-left text-slate-700 font-medium whitespace-nowrap">
+                    {screen.label}
                   </td>
-                  {roles.map((role: any) => {
+                  {columnRoles.map((role: any) => {
                     const roleId = role.id.toString();
-                    const state = localMatrix[roleId]?.[mod];
+                    const state = localMatrix[roleId]?.[screen.mod];
                     const data = state ? { type: state } : null;
+                    const subLabel = SUB_LABELS[screen.label]?.[role.roleName];
                     
                     return (
-                      <td key={roleId} className="px-4 py-3 align-middle">
+                      <td key={roleId} className="px-2 py-3 align-middle h-16">
                         <CellBadge 
                           data={data} 
                           isEditing={isEditing} 
-                          onToggle={() => handleToggle(roleId, mod)}
+                          onToggle={() => handleToggle(roleId, screen.mod)}
+                          subLabel={subLabel}
                         />
                       </td>
                     );
                   })}
                 </tr>
               ))}
-              {modules.length === 0 && (
+              {SCREENS.length === 0 && (
                 <tr>
-                  <td colSpan={roles.length + 1} className="p-4 text-slate-500 text-center">
+                  <td colSpan={columnRoles.length + 1} className="p-4 text-slate-500 text-center">
                     No permissions found in the database.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-4 text-[13px] text-slate-500 max-w-3xl leading-relaxed">
+          Physician &amp; Dietary (External IDT) — Full (e-sign) only on M2-US-10
+          IDT Acknowledgment; no other screen access (§4A.2). Full matrix (all 19
+          screens): see Master Plan §4A.
         </div>
       </div>
     </div>

@@ -113,7 +113,9 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Active</p>
-              <p className="text-2xl font-bold text-slate-900">-</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {users.filter((u: any) => u.status === 'ACTIVE').length}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -125,7 +127,9 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Invited</p>
-              <p className="text-2xl font-bold text-slate-900">-</p>
+              <p className="text-2xl font-bold text-slate-900">
+                0
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -137,7 +141,9 @@ export default function UserList() {
             </div>
             <div>
               <p className="text-xs font-medium text-slate-500 uppercase">Suspended / Deactivated</p>
-              <p className="text-2xl font-bold text-slate-900">-</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {users.filter((u: any) => u.status === 'INACTIVE' || u.status === 'LOCKED').length}
+              </p>
             </div>
           </CardContent>
         </Card>
