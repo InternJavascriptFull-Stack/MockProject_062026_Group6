@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.UniqueIdentifier
+  employeeCode  String    @unique @map("employee_code") @db.NVarChar(50)
+  email         String    @unique @db.NVarChar(255)
+  passwordHash  String    @map("password_hash") @db.NVarChar(300)
+  firstName     String    @map("first_name") @db.NVarChar(100)
+  middleName    String?   @map("middle_name") @db.NVarChar(100)
+  lastName      String    @map("last_name") @db.NVarChar(100)
+  licenseNumber String?   @map("license_number") @db.NVarChar(100)
+  phoneNumber   String?   @map("phone_number") @db.NVarChar(20)
+  status        String    @default("INACTIVE") @db.VarChar(20)
+  mfaEnabled    Boolean   @default(false) @map("mfa_enabled")
+  lastLoginAt   DateTime? @map("last_login_at") @db.DateTimeOffset
+  roleId        BigInt    @map("role_id")
+  role          Role      @relation(fields: [roleId], references: [id])
+  isDeleted     Boolean   @default(false) @map("is_deleted")
+  deletedAt     DateTime? @map("deleted_at") @db.DateTimeOffset
+  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTimeOffset
+
+  @@map("users")
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  roleName    String   @unique @map("role_name") @db.NVarChar(100)
+  description String?  @map("description") @db.NVarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+  users       User[]
+
+  @@map("roles")
+}
+
+
