@@ -9,6 +9,7 @@ import {
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
+import { useRouter } from "../../lib/router";
 
 interface PendingCarePlan {
   id: string;
@@ -65,13 +66,8 @@ const INITIAL_CARE_PLANS: PendingCarePlan[] = [
 ];
 
 export function DonDashboard() {
-  const [carePlans, setCarePlans] =
-    React.useState<PendingCarePlan[]>(INITIAL_CARE_PLANS);
-
-  const handleReview = (id: string, name: string) => {
-    alert(`Reviewing Care Plan for ${name}`);
-    setCarePlans((prev) => prev.filter((p) => p.id !== id));
-  };
+  const { navigate } = useRouter();
+  const [carePlans] = React.useState<PendingCarePlan[]>(INITIAL_CARE_PLANS);
 
   return (
     <main className="flex-1 space-y-6 p-6 md:p-8">
@@ -177,7 +173,7 @@ export function DonDashboard() {
             </h2>
             <button
               onClick={() => {
-                alert("Viewing all pending reviews...");
+                navigate("/care-planning");
               }}
               className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
             >
@@ -232,7 +228,9 @@ export function DonDashboard() {
                     <td className="py-4 pl-4 text-right">
                       <button
                         onClick={() => {
-                          handleReview(plan.id, plan.residentName);
+                          navigate(
+                            `/care-planning/detail?residentId=${plan.id}`,
+                          );
                         }}
                         className="cursor-pointer text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline"
                       >
@@ -270,7 +268,7 @@ export function DonDashboard() {
               </div>
               <button
                 onClick={() => {
-                  alert("Redirecting to Residents list...");
+                  navigate("/residents");
                 }}
                 className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >

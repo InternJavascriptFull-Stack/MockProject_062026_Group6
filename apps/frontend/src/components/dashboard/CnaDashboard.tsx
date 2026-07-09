@@ -2,6 +2,7 @@ import * as React from "react";
 import { ClipboardCheck, AlertCircle, Users, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
+import { useRouter } from "../../lib/router";
 
 interface TaskItem {
   id: string;
@@ -56,6 +57,7 @@ const INITIAL_TASKS: TaskItem[] = [
 ];
 
 export function CnaDashboard() {
+  const { navigate } = useRouter();
   const [tasks, setTasks] = React.useState<TaskItem[]>(INITIAL_TASKS);
 
   // Toggle status to show micro-interactions
@@ -176,7 +178,7 @@ export function CnaDashboard() {
             </h2>
             <button
               onClick={() => {
-                alert("Redirecting to Daily Task List...");
+                navigate("/care-planning");
               }}
               className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
             >

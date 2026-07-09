@@ -134,7 +134,6 @@ export function SidebarNavigation({
         <button
           type="button"
           onClick={() => {
-            setActiveView("Logout");
             alert("Logging out...");
           }}
           className="text-brand-gray-muted hover:text-brand-primary-dark flex w-full cursor-pointer items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all hover:bg-slate-100"

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
+import { useRouter } from "../../lib/router";
 
 interface AssignedResident {
   id: string;
@@ -87,6 +88,7 @@ const INITIAL_INCIDENTS: OpenIncident[] = [
 ];
 
 export function NurseDashboard() {
+  const { navigate } = useRouter();
   const [residents, setResidents] =
     React.useState<AssignedResident[]>(INITIAL_RESIDENTS);
   const [incidents] = React.useState<OpenIncident[]>(INITIAL_INCIDENTS);
@@ -210,7 +212,7 @@ export function NurseDashboard() {
               </h2>
               <button
                 onClick={() => {
-                  alert("Viewing all assigned residents...");
+                  navigate("/residents");
                 }}
                 className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >
@@ -286,7 +288,7 @@ export function NurseDashboard() {
               </h2>
               <button
                 onClick={() => {
-                  alert("Viewing all open incidents...");
+                  navigate("/incident-risk");
                 }}
                 className="flex cursor-pointer items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >
