@@ -3,7 +3,9 @@ import { Login } from "./pages/auth/Login";
 import { Activation } from "./pages/auth/Activation";
 import { TwoStepVerification } from "./pages/auth/TwoStepVerification";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminLayout } from "./layouts/AdminLayout";
 import Patients from "./pages/Patients/page";
+import UserList from "./pages/users/UserList";
 
 function App() {
   return (
@@ -11,6 +13,16 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/activate" element={<Activation />} />
       <Route path="/verify-otp" element={<TwoStepVerification />} />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <UserList />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/dashboard"
