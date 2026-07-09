@@ -7,6 +7,7 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import Patients from "./pages/Patients/page";
 import UserList from "./pages/users/UserList";
 import UserForm from "./pages/users/UserForm";
+import RoleMatrix from "./pages/roles/RoleMatrix";
 
 function App() {
   return (
@@ -20,6 +21,16 @@ function App() {
           <ProtectedRoute>
             <AdminLayout>
               <UserList />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/roles"
+        element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <RoleMatrix />
             </AdminLayout>
           </ProtectedRoute>
         }
