@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Users, CheckSquare, Clock, XSquare, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/authUi/input';
@@ -24,6 +25,7 @@ const mockUsers = [
 ];
 
 export default function UserList() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -157,7 +159,10 @@ export default function UserList() {
           </div>
         </div>
 
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto">
+        <Button 
+          className="bg-blue-600 hover:bg-blue-700 text-white w-full md:w-auto"
+          onClick={() => navigate('/admin/users/create')}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add User
         </Button>
@@ -192,7 +197,10 @@ export default function UserList() {
                 <td className="px-4 py-3">{renderMFABadge(user.mfa)}</td>
                 <td className="px-4 py-3 text-slate-500">{user.lastLogin}</td>
                 <td className="px-4 py-3 text-right">
-                  <button className="text-blue-600 font-bold hover:text-blue-700 hover:underline">
+                  <button 
+                    className="text-blue-600 font-bold hover:text-blue-700 hover:underline"
+                    onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                  >
                     Edit
                   </button>
                 </td>

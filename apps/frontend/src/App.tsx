@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
 import Patients from "./pages/Patients/page";
 import UserList from "./pages/users/UserList";
+import UserForm from "./pages/users/UserForm";
 
 function App() {
   return (
@@ -19,6 +20,26 @@ function App() {
           <ProtectedRoute>
             <AdminLayout>
               <UserList />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users/create"
+        element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <UserForm />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users/:id/edit"
+        element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <UserForm />
             </AdminLayout>
           </ProtectedRoute>
         }
