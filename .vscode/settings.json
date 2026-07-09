@@ -1,141 +1,121 @@
 {
-  // #region Base Formatting & Git Sync
-  "editor.tabSize": 2,
-  "editor.insertSpaces": true,
-  "editor.detectIndentation": false,
-  "files.eol": "\n",
-  "files.trimTrailingWhitespace": true,
-  "files.insertFinalNewline": true,
-  // #endregion
-
-  // #region Editor UX & Autocompletion
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
-  },
-  "editor.guides.bracketPairs": true,
-  "editor.bracketPairColorization.enabled": true,
-  "editor.linkedEditing": true,
-  // #endregion
-
-  // #region Languages Formatters
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "[prisma]": {
-    "editor.defaultFormatter": "Prisma.prisma"
-  },
-  "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[javascriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[html]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[css]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[markdown]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "files.eol": "\n",
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
     "editor.formatOnSave": true,
-    "editor.wordWrap": "off",
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  // #endregion
-
-  // #region Emmet (Fast JSX/HTML tags)
-  "emmet.preferences": {
-    "emmet.includeLanguages": {
-      "javascript": "javascriptreact"
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
     },
-    "emmet.triggerExpansionOnTab": true
-  },
-  // #endregion
-
-  // #region Path Intellisense
-  "path-intellisense.autoSlashAfterDirectory": true,
-  "path-intellisense.autoTriggerNextSuggestion": true,
-  "path-intellisense.ignoreTsConfigBaseUrl": true,
-  "path-intellisense.showHiddenFiles": true,
-  // #endregion
-
-  // #region Better Comments (Team Standards)
-  "better-comments.tags": [
-    {
-      "tag": "TODO:",
-      "color": "#EA580C",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "editor.guides.bracketPairs": true,
+    "editor.bracketPairColorization.enabled": true,
+    "editor.linkedEditing": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[prisma]": {
+        "editor.defaultFormatter": "Prisma.prisma"
     },
-    {
-      "tag": "FIXME:",
-      "color": "#FF2D00",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": "BUG:",
-      "color": "#9333EA",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": "HACK:",
-      "color": "#C026D3",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": " #region",
-      "color": "#2563EB",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": "INFO:",
-      "color": "#0EA5E9",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[html]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": "IDEA:",
-      "color": "#FFF",
-      "strikethrough": false,
-      "backgroundColor": "#EAB308"
+    "[css]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": "WHY:",
-      "color": "#F59E0B",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    {
-      "tag": "PERF:",
-      "color": "#22C55E",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
+    "[jsonc]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[markdown]": {
+        "editor.formatOnSave": true,
+        "editor.wordWrap": "off",
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "emmet.preferences": {
+        "emmet.includeLanguages": {
+            "javascript": "javascriptreact"
+        },
+        "emmet.triggerExpansionOnTab": true
+    },
+    "path-intellisense.autoSlashAfterDirectory": true,
+    "path-intellisense.autoTriggerNextSuggestion": true,
+    "path-intellisense.ignoreTsConfigBaseUrl": true,
+    "path-intellisense.showHiddenFiles": true,
+    "better-comments.tags": [
+        {
+            "tag": "TODO:",
+            "color": "#EA580C",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": "FIXME:",
+            "color": "#FF2D00",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": "BUG:",
+            "color": "#9333EA",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": "HACK:",
+            "color": "#C026D3",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": " #region",
+            "color": "#2563EB",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": "INFO:",
+            "color": "#0EA5E9",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": "IDEA:",
+            "color": "#FFF",
+            "strikethrough": false,
+            "backgroundColor": "#EAB308"
+        },
+        {
+            "tag": "WHY:",
+            "color": "#F59E0B",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        },
+        {
+            "tag": "PERF:",
+            "color": "#22C55E",
+            "strikethrough": false,
+            "backgroundColor": "transparent"
+        }
+    ],
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/.next": true,
+        "**/build": true,
+        "**/.git": true
     }
-  ],
-  // #endregion
-
-  // #region Search Exclude
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/.next": true,
-    "**/build": true,
-    "**/.git": true
-  }
-  // #endregion
 }

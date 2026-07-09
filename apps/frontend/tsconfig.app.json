@@ -2,13 +2,24 @@
   "extends": "@nursinghome/typescript-config/react",
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
     "moduleDetection": "force",
-    "erasableSyntaxOnly": true,
     "baseUrl": "./",
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitOverride": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

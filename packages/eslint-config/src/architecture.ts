@@ -1,7 +1,7 @@
 import { defineConfig } from "eslint/config";
 
 export default defineConfig([
-  // FEATURE BOUNDARY ENFORCEMENT (Ranh giới thép cho Features)
+  // FEATURE BOUNDARY ENFORCEMENT
   {
     files: [
       "apps/**/src/features/**/*.ts",
@@ -15,8 +15,8 @@ export default defineConfig([
         {
           patterns: [
             {
-              // 1. ÉP BUỘC Encapsulation: Chỉ được import qua public interface (index.ts)
-              //    Cấm chọc thẳng vào file con bên trong feature khác
+              // 1. Enforce encapsulation: import only through the public interface (index.ts).
+              //    Do not directly access child files inside another feature.
               group: [
                 "@/features/*/*",
                 "!@/features/*/index",
@@ -45,14 +45,14 @@ export default defineConfig([
                 "Private internal access! Import is only allowed from public interfaces (index.ts), sub-barrels (hooks, components, etc.), or safe deep imports. Direct access to internal files is forbidden.",
             },
             {
-              // 2. NGĂN Feature import ngược từ App Router layer (UI Layer)
-              //    Giữ nguyên tắc UI Agnostic + Dependency Rule
+              // 2. Prevent features from importing back from the App Router layer (UI Layer).
+              //    Keep the UI-agnostic dependency rule.
               group: ["@/app/**", "@/app/*"],
               message:
                 "Features MUST NOT import from the Next.js App layer (app/). The App layer can call features, but not vice versa.",
             },
             {
-              // 3. Cấm import từ shared/services trực tiếp trong feature (nên đi qua index)
+              // 3. Prevent direct imports from shared/services inside features; use the public index instead.
               group: ["@/shared/services/*", "!@/shared/services/index"],
               message:
                 "Only import from @/shared/services (public interface), do not import internal files directly.",
@@ -61,7 +61,7 @@ export default defineConfig([
         },
       ],
 
-      // Tăng cường anti-circular (kết hợp với import-x/no-cycle)
+      // Strengthen anti-circular dependency checks with import-x/no-cycle.
       "import-x/no-cycle": [
         "error",
         {
@@ -71,7 +71,7 @@ export default defineConfig([
         },
       ],
 
-      // Ngăn import chính file hiện tại qua bất kỳ đường dẫn nào (./index, alias, ...)
+      // Prevent a file from importing itself through any path (./index, alias, and so on).
       "import-x/no-self-import": "error",
     },
   },
@@ -90,7 +90,7 @@ export default defineConfig([
         {
           patterns: [
             {
-              // Cho phép import từ public barrel của feature/sub-feature hoặc deep import (để tránh Server/Client leakage).
+              // Allow imports from feature/sub-feature public barrels or safe deep imports to avoid server/client leakage.
               group: [
                 "@/features/*/*/*",
                 "!@/features/*/*/index",
@@ -113,7 +113,7 @@ export default defineConfig([
     },
   },
 
-  // FEATURE BARREL SELF-IMPORT GUARD (tránh index.ts import lại chính nó)
+  // FEATURE BARREL SELF-IMPORT GUARD
   {
     files: [
       "apps/**/src/features/**/index.ts",

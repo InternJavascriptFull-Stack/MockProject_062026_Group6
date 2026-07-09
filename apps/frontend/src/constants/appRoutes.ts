@@ -1,0 +1,15 @@
+export const APP_ROUTES = {
+    LANDING: "/",
+    DASHBOARD: "/dashboard",
+    RESIDENTS: "/residents",
+    RESIDENT_RECEPTION: "/residents/reception",
+    DOCTOR_SCHEDULE: "/doctor-schedule",
+    EMAR: "/emar",
+    CARE_PLAN: "/care-plan",
+    LOGIN: "/login",
+    REGISTER: "/login/register",
+    FORGOT_PASSWORD: "/login/forgot-password",
+    ENTER_NEW_PASSWORD: "/login/enter-new-password",
+    SIGN_IN: "/sign-in",
+    SIGN_UP: "/sign-up",
+} as const;

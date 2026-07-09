@@ -7,8 +7,7 @@
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
     "moduleDetection": "force",
-    "noEmit": true,
-    "erasableSyntaxOnly": true
+    "noEmit": true
   },
   "include": ["vite.config.ts"]
 }

@@ -1,129 +1,94 @@
 # MockProject_Group6 - Nursing Home Management System
 
-Welcome to the official repository for the Nursing Home Management System. This project is developed by Group 6.
+This repository is a simple npm workspaces monorepo for the Nursing Home Management System.
 
-## Tech Stack Overview
+## Tech Stack
 
-- **Runtime Environment:** **Node.js LTS (v24)**
-- **Package Manager:** **npm** (with npm Workspaces, strictly no `yarn`/`pnpm`/`bun` to avoid lockfile conflicts)
-- **Programming Language:** **TypeScript (TS) v5.9.x**
-- **Frontend Framework:** **ReactJS (Vite)**
-- **CSS & UI Framework:** **Tailwind CSS** & **shadcn/ui**
-- **Backend Framework:** **NestJS**
-- **Database ORM:** **Prisma ORM**
-- **Database:** **SQL Server (MSSQL) 2022 Express** (via Docker)
-- **State Management:** **Zustand**
-- **HTTP Client & Server State:** **Axios** & **React Query (@tanstack/react-query)**
-- **Validation:** **Class-Validator** (Backend) & **Zod** (Frontend, with React Hook Form)
-- **Authentication:** **NestJS Passport (JWT)** & **Zustand Store (`useAuthStore`)** (using HttpOnly Cookies for secure session rehydration via `/auth/me`)
-- **Date/Time Library:** **Day.js**
+- Node.js LTS v24
+- npm workspaces
+- TypeScript 5.9.x
+- ReactJS with Vite
+- Tailwind CSS and shadcn-style UI components
+- NestJS backend
+- Prisma ORM
+- SQL Server 2022 Express through Docker
+- Zustand, Axios, React Query, Zod, React Hook Form, Day.js
+- ESLint and Prettier
 
----
-
-## Repository Directory Structure (Simple Monorepo)
+## Project Structure
 
 ```text
-MockProject_Group6/           # Git Repository Root
+MockProject_Group6/
 ├── apps/
-│   ├── frontend/             # ReactJS (Vite, Tailwind, Zustand)
-│   │   ├── src/
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   └── backend/              # NestJS (Prisma ORM, Passport)
-│       ├── src/
-│       ├── package.json
-│       └── tsconfig.json
+│   ├── frontend/
+│   └── backend/
 ├── packages/
-│   └── shared-types/         # Shared package for types, DTO interfaces, validation
-│       ├── index.ts
-│       └── package.json
-├── .vscode/                  # Shared IDE configurations
-│   ├── extensions.json
-│   └── settings.json
-├── docker-compose.yml        # Docker SQL Server 2022 Express config
-├── .env.example              # Environment variables template
-├── .gitignore                # Git ignore rules
-├── package.json              # Root package defining npm workspaces
-└── README.md                 # This file
+│   ├── eslint-config/
+│   └── typescript-config/
+├── docs/
+│   ├── codingStandards.md
+│   └── techStackDecisions.md
+├── docker-compose.yml
+├── .env.example
+├── package.json
+└── README.md
 ```
 
----
+## Setup
 
-## Local Development Setup Guide
+```powershell
+cd D:\Downloads\MockProject_Group6_Merged_Final_Standards\MockProject_Group6_Merged_Final
+npm install
+npm run dev
+```
 
-### 1. Prerequisite: Install Docker
+Open:
 
-- **Windows & macOS:** Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-  - _Windows:_ Ensure WSL 2 is enabled in Docker settings.
-  - _macOS (Apple Silicon M1/M2/M3):_ Docker Desktop supports Rosetta 2 natively.
+```text
+http://localhost:3001
+```
 
-- **Linux:** Install Docker Engine and the `docker-compose-plugin` using your package manager.
+## Useful Scripts
 
-### 2. Start the local database
+```bash
+npm run dev
+npm run dev:frontend
+npm run dev:backend
+npm run build
+npm run lint
+npm run format
+```
 
-Run the following command at the root of the repository to launch the SQL Server container in the background:
+## Routes
+
+```text
+/                         Landing page
+/dashboard                Internal dashboard
+/residents                Resident list
+/residents/reception      Resident reception
+/doctor-schedule          Doctor schedule
+/emar                     eMAR medicine
+/care-plan                Care plan
+/login                    Login
+/login/register           Register
+/login/forgot-password    Forgot password
+/login/enter-new-password Enter new password
+/sign-in                  Sign in
+/sign-up                  Sign up
+```
+
+## Database
+
+Start SQL Server 2022 Express with Docker:
 
 ```bash
 docker compose up -d
 ```
 
-Verify the database container is active:
-
-```bash
-docker ps
-```
-
-_(You should see `mssql_nursing_home` with status `Up`)._
-
-### 3. Setup environment variables
-
-Create a `.env` file at the root of the project by copying `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Ensure the credentials in `.env` match your local database configuration (refer to `.env.example` for the default connection variables).
-
-### 4. Sync Database Schema (Prisma)
-
-To initialize the SQL Server database schema from your Prisma models, run:
-
-```bash
-npx prisma db push
-```
-
-### 5. Running the applications
-
-To run the packages in the workspace, use npm workspaces:
-
-- Run the Backend:
-
-  ```bash
-  npm run start:dev -w apps/backend
-  ```
-
-- Run the Frontend:
-
-  ```bash
-  npm run dev -w apps/frontend
-  ```
-
-### 6. Shutting down the database
-
-To stop the SQL Server container when you are finished coding:
+Stop it:
 
 ```bash
 docker compose down
 ```
 
-_(Your development database data is persistent and stored in the local volume `mssql_data`)._
-
----
-
-## Coding Standards & Git Workflow
-
-Before contributing or submitting a Pull Request, please ensure you review and follow the team's coding guidelines:
-
-- **Coding Guidelines:** Refer to the detailed guide in [docs/coding-standards.md](docs/coding-standards.md).
-- **Git Branching Policy:** Ensure all branches are named using the lowercase pattern: `feature/<name>`, `bugfix/<name>`, `refactor/<name>`, or `docs/<name>`.
+See `.env.example` for the shared Prisma `DATABASE_URL`.

@@ -1,0 +1,49 @@
+{
+  "indent": "  ",
+  "sortFirst": [
+    "name",
+    "version",
+    "license",
+    "description",
+    "private",
+    "type",
+    "exports",
+    "packageManager",
+    "workspaces",
+    "scripts",
+    "engines",
+    "dependencies",
+    "devDependencies",
+    "peerDependencies",
+    "overrides",
+    "allowScripts"
+  ],
+  "sortAz": [
+    "scripts",
+    "dependencies",
+    "devDependencies",
+    "peerDependencies"
+  ],
+  "semverGroups": [
+    {
+      "range": "^",
+      "dependencies": [
+        "**"
+      ],
+      "packages": [
+        "**"
+      ]
+    }
+  ],
+  "versionGroups": [
+    {
+      "dependencies": [
+        "@nursinghome/**"
+      ],
+      "packages": [
+        "**"
+      ],
+      "isIgnored": true
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+name: PR Check (Lint, Test, Build)
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - "**/*.md"
+      - ".gitignore"
+      - "LICENSE"
+
+jobs:
+  integration:
+    name: Code Quality & Dry-run Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Environment
+        uses: ./.github/setup-environment
+
+      - name: Run PR Pipeline (Lint, Test, Build)
+        run: npm run lint test build

@@ -86,7 +86,13 @@ export default defineConfig([
   // ...architecture,
 
   {
-    files: ["**/*.config.ts", "**/*.config.js", "**/eslint.config.ts", "**/eslint.config.js", "**/vite.config.ts"],
+    files: [
+      "**/*.config.ts",
+      "**/*.config.js",
+      "**/eslint.config.ts",
+      "**/eslint.config.js",
+      "**/vite.config.ts",
+    ],
     ...tseslint.configs.disableTypeChecked,
   },
   eslintPluginPrettierRecommended,
