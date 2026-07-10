@@ -26,6 +26,7 @@ model User {
   deletedAt     DateTime? @map("deleted_at") @db.DateTimeOffset
   createdAt     DateTime  @default(now()) @map("created_at") @db.DateTimeOffset
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTimeOffset
+  facilities    UserFacility[]
 
   @@map("users")
 }
@@ -60,4 +61,32 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
+}
+
+model Facility {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  addressId     BigInt?  @map("address_id")
+  facilityCode  String   @unique @map("facility_code") @db.NVarChar(50)
+  name          String   @db.NVarChar(200)
+  licenseNumber String   @map("license_number") @db.NVarChar(100)
+  targetState   String   @map("target_state") @db.Char(2)
+  phoneNumber   String?  @map("phone_number") @db.NVarChar(20)
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+  users         UserFacility[]
+
+  @@map("facilities")
+}
+
+model UserFacility {
+  userId      String   @map("user_id") @db.UniqueIdentifier
+  facilityId  String   @map("facility_id") @db.UniqueIdentifier
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, facilityId])
+  @@map("user_facilities")
 }
