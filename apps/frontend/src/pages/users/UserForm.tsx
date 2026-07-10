@@ -17,6 +17,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userService } from "@/services/user";
 import { roleService } from "@/services/role";
+import { facilityService } from "@/services/facility";
 
 const userSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -29,7 +30,7 @@ const userSchema = z.object({
       message: "Must be a valid E.164 phone number (e.g. +14155550100)",
     }),
   role: z.string().min(1, "Role is required"),
-  facility: z.string().optional(),
+  facilityId: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -44,6 +45,11 @@ export default function UserForm() {
   const { data: roles } = useQuery({
     queryKey: ['roles'],
     queryFn: () => roleService.getRoles()
+  });
+
+  const { data: facilities } = useQuery({
+    queryKey: ['facilities'],
+    queryFn: () => facilityService.getFacilities()
   });
 
   const { data: userData, isLoading: isUserLoading } = useQuery({
@@ -66,19 +72,20 @@ export default function UserForm() {
       email: "",
       phone: "",
       role: "",
-      facility: "None",
+      facilityId: "None",
     },
   });
 
   useEffect(() => {
     if (isEditMode && userData) {
+      const primaryFacility = userData.facilities?.find((f: any) => f.isPrimary)?.facilityId || "None";
       reset({
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
         phone: userData.phoneNumber || "",
         role: userData.roleId?.toString() || "",
-        facility: "None",
+        facilityId: primaryFacility,
       });
     }
   }, [isEditMode, userData, reset]);
@@ -102,15 +109,16 @@ export default function UserForm() {
       email: data.email,
       phoneNumber: data.phone || undefined,
       roleId: parseInt(data.role, 10),
-      status: isEditMode ? userData?.status || 'ACTIVE' : 'ACTIVE'
+      status: isEditMode ? userData?.status || 'ACTIVE' : 'ACTIVE',
+      facilityId: data.facilityId === "None" ? undefined : data.facilityId
     };
     mutation.mutate(payload as any);
   };
 
   const statusValue = isEditMode ? (userData?.status || 'Loading...') : "ACTIVE";
 
-  if (isEditMode && isUserLoading) {
-    return <div className="p-8 text-center text-slate-500">Loading user data...</div>;
+  if ((isEditMode && isUserLoading) || !roles || !facilities) {
+    return <div className="p-8 text-center text-slate-500">Loading data...</div>;
   }
 
   return (
@@ -248,7 +256,7 @@ export default function UserForm() {
                   <Label className="block mb-2 font-semibold text-slate-700">Assigned Facility (optional)</Label>
                   <Controller
                     control={control}
-                    name="facility"
+                    name="facilityId"
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
                         <SelectTrigger>
@@ -256,8 +264,9 @@ export default function UserForm() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="None">None</SelectItem>
-                          <SelectItem value="Facility A">Facility A</SelectItem>
-                          <SelectItem value="Facility B">Facility B</SelectItem>
+                          {facilities?.map((f: any) => (
+                            <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}

@@ -38,7 +38,7 @@ export class UsersService {
         where,
         skip,
         take: limit,
-        include: { role: true },
+        include: { role: true, facilities: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.count({ where }),
@@ -58,7 +58,7 @@ export class UsersService {
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { role: true },
+      include: { role: true, facilities: true },
     });
 
     if (!user) {
@@ -90,11 +90,20 @@ export class UsersService {
         firstName: createUserDto.firstName,
         lastName: createUserDto.lastName,
         email: createUserDto.email.toLowerCase(),
+        phoneNumber: createUserDto.phoneNumber,
         status: createUserDto.status,
         roleId: BigInt(createUserDto.roleId),
         passwordHash: placeholderHash,
+        ...(createUserDto.facilityId && createUserDto.facilityId !== 'None' ? {
+          facilities: {
+            create: {
+              facilityId: createUserDto.facilityId,
+              isPrimary: true,
+            }
+          }
+        } : {})
       },
-      include: { role: true }
+      include: { role: true, facilities: true }
     });
 
     return this.serializeBigInt(user);
@@ -121,10 +130,22 @@ export class UsersService {
         firstName: updateUserDto.firstName,
         lastName: updateUserDto.lastName,
         email: updateUserDto.email?.toLowerCase(),
+        phoneNumber: updateUserDto.phoneNumber,
         status: updateUserDto.status,
-        ...(updateUserDto.roleId && { roleId: BigInt(updateUserDto.roleId) })
+        ...(updateUserDto.roleId && { roleId: BigInt(updateUserDto.roleId) }),
+        ...(updateUserDto.facilityId !== undefined ? {
+          facilities: {
+            deleteMany: {},
+            ...(updateUserDto.facilityId !== 'None' ? {
+              create: {
+                facilityId: updateUserDto.facilityId,
+                isPrimary: true,
+              }
+            } : {})
+          }
+        } : {})
       },
-      include: { role: true }
+      include: { role: true, facilities: true }
     });
 
     return this.serializeBigInt(updatedUser);
