@@ -37,8 +37,27 @@ model Role {
   createdAt   DateTime @default(now()) @map("created_at") @db.DateTimeOffset
   updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
   users       User[]
+  permissions RolePermission[]
 
   @@map("roles")
 }
 
+model Permission {
+  id             BigInt           @id @default(autoincrement()) @db.BigInt
+  actionCode     String           @unique @map("action_code") @db.NVarChar(100)
+  isPhiSensitive Boolean          @default(false) @map("is_phi_sensitive")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.DateTimeOffset
+  roles          RolePermission[]
 
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       BigInt     @map("role_id") @db.BigInt
+  permissionId BigInt     @map("permission_id") @db.BigInt
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}

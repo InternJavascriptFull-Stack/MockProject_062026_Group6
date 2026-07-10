@@ -79,11 +79,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC]">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#F8FAFC]">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="fixed left-0 top-0 z-20 flex h-full w-[260px] flex-col border-r border-slate-200 bg-white">
+      <aside className="flex h-full w-[260px] flex-shrink-0 flex-col border-r border-slate-200 bg-white z-20">
         {/* Logo */}
-        <div className="flex h-16 items-center px-6 border-b border-transparent">
+        <div className="flex h-16 flex-shrink-0 items-center px-6 border-b border-transparent">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-2">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -98,7 +98,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-4">
+        <div className="flex-1 overflow-y-auto py-4 no-scrollbar">
           <div className="flex flex-col gap-6 px-4">
             {navGroups.map((group, idx) => (
               <div key={idx} className="flex flex-col gap-1">
@@ -134,7 +134,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Logout at bottom */}
-        <div className="border-t border-slate-100 p-4">
+        <div className="border-t border-slate-100 p-4 flex-shrink-0">
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
@@ -147,9 +147,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main Content Area ────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col pl-[260px]">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-8">
+        <header className="flex h-16 flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8 z-10">
           <div>
             {/* Header left empty or can have page title */}
           </div>
@@ -186,7 +186,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-8">
+        <main className="flex-1 overflow-y-auto p-8 no-scrollbar">
           {children}
         </main>
       </div>
