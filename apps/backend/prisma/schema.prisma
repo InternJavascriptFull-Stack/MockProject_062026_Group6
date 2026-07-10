@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.UniqueIdentifier
+  employeeCode  String    @unique @map("employee_code") @db.NVarChar(50)
+  email         String    @unique @db.NVarChar(255)
+  passwordHash  String    @map("password_hash") @db.NVarChar(300)
+  firstName     String    @map("first_name") @db.NVarChar(100)
+  middleName    String?   @map("middle_name") @db.NVarChar(100)
+  lastName      String    @map("last_name") @db.NVarChar(100)
+  licenseNumber String?   @map("license_number") @db.NVarChar(100)
+  phoneNumber   String?   @map("phone_number") @db.NVarChar(20)
+  status        String    @default("INACTIVE") @db.VarChar(20)
+  mfaEnabled    Boolean   @default(false) @map("mfa_enabled")
+  lastLoginAt   DateTime? @map("last_login_at") @db.DateTimeOffset
+  roleId        BigInt    @map("role_id")
+  role          Role      @relation(fields: [roleId], references: [id])
+  isDeleted     Boolean   @default(false) @map("is_deleted")
+  deletedAt     DateTime? @map("deleted_at") @db.DateTimeOffset
+  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTimeOffset
+  facilities    UserFacility[]
+
+  @@map("users")
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  roleName    String   @unique @map("role_name") @db.NVarChar(100)
+  description String?  @map("description") @db.NVarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id             BigInt           @id @default(autoincrement()) @db.BigInt
+  actionCode     String           @unique @map("action_code") @db.NVarChar(100)
+  isPhiSensitive Boolean          @default(false) @map("is_phi_sensitive")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.DateTimeOffset
+  roles          RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       BigInt     @map("role_id") @db.BigInt
+  permissionId BigInt     @map("permission_id") @db.BigInt
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Facility {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  addressId     BigInt?  @map("address_id")
+  facilityCode  String   @unique @map("facility_code") @db.NVarChar(50)
+  name          String   @db.NVarChar(200)
+  licenseNumber String   @map("license_number") @db.NVarChar(100)
+  targetState   String   @map("target_state") @db.Char(2)
+  phoneNumber   String?  @map("phone_number") @db.NVarChar(20)
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+  users         UserFacility[]
+
+  @@map("facilities")
+}
+
+model UserFacility {
+  userId      String   @map("user_id") @db.UniqueIdentifier
+  facilityId  String   @map("facility_id") @db.UniqueIdentifier
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, facilityId])
+  @@map("user_facilities")
+}
