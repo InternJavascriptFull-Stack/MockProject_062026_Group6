@@ -24,6 +24,7 @@ export interface LoginResponse {
   twoStepRequired: boolean;
   tempCode?: string;
   phoneHint?: string | null;
+  accessToken?: string;
 }
 
 /** Returned by POST /api/auth/verify-otp */
