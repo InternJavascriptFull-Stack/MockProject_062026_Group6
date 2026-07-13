@@ -10,6 +10,8 @@ import UserList from "./pages/users/UserList";
 import UserForm from "./pages/users/UserForm";
 import RoleMatrix from "./pages/roles/RoleMatrix";
 import DashboardRouter from "./pages/dashboard/DashboardRouter";
+import DemoSeeder from "./pages/admin/DemoSeeder";
+import IncidentDetail from "./pages/residents/IncidentDetail";
 import { DoctorsSchedulePage } from "./pages/schedule/doctorsSchedulePage";
 import { EmarPage } from "./pages/emar/emarPage";
 import { CarePlanPage } from "./pages/carePlan/carePlanPage";
@@ -46,6 +48,16 @@ function App() {
                     <ProtectedRoute>
                         <AdminLayout>
                             <RoleMatrix />
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/data"
+                element={
+                    <ProtectedRoute>
+                        <AdminLayout>
+                            <DemoSeeder />
                         </AdminLayout>
                     </ProtectedRoute>
                 }
@@ -113,6 +125,7 @@ function App() {
                 <Route path="/care-plans/:id" element={<CarePlanPage />} />
                 <Route path="/care-plans/:id/review" element={<DonReviewPage />} />
                 <Route path="/care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />
+                <Route path="/incidents/:id" element={<IncidentDetail />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />

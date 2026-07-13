@@ -1,9 +1,30 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
 export class CarePlansService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async checkChartLockByResidentId(residentId: string) {
+    if (!residentId) return;
+    const res = await this.prisma.residents.findUnique({
+      where: { id: residentId },
+      select: { is_chart_locked: true }
+    });
+    if (res?.is_chart_locked) {
+      throw new ForbiddenException("Resident chart is locked. Modifications are not allowed.");
+    }
+  }
+
+  async checkChartLockByCarePlanId(id: string) {
+    const cp = await this.prisma.care_plans.findUnique({
+      where: { id },
+      select: { resident_id: true }
+    });
+    if (cp?.resident_id) {
+      await this.checkChartLockByResidentId(cp.resident_id);
+    }
+  }
 
   async findAll() {
     const plans = await this.prisma.care_plans.findMany({
@@ -82,6 +103,7 @@ export class CarePlansService {
   }
 
   async create(data: any, userId: string) {
+    await this.checkChartLockByResidentId(data.residentId);
     return this.prisma.care_plans.create({
       data: {
         resident_id: data.residentId,
@@ -98,6 +120,7 @@ export class CarePlansService {
   }
 
   async update(id: string, data: any) {
+    await this.checkChartLockByCarePlanId(id);
     return this.prisma.care_plans.update({
       where: { id },
       data: {
@@ -117,6 +140,7 @@ export class CarePlansService {
   }
 
   async donReview(id: string, data: any, reviewerId: string) {
+    await this.checkChartLockByCarePlanId(id);
     const review = await this.prisma.care_plan_reviews.create({
       data: {
         care_plan_id: id,
@@ -135,6 +159,7 @@ export class CarePlansService {
   }
 
   async eSign(id: string, data: any, signerId: string) {
+    await this.checkChartLockByCarePlanId(id);
     const sig = await this.prisma.care_plan_signatures.create({
       data: {
         care_plan_id: id,
@@ -152,6 +177,7 @@ export class CarePlansService {
   }
 
   async idtAck(id: string, data: any, userId: string) {
+    await this.checkChartLockByCarePlanId(id);
     return this.prisma.idt_acknowledgments.create({
       data: {
         care_plan_id: id,

@@ -10,6 +10,8 @@ import { ResidentsModule } from "./residents/residents.module.js";
 import { RolesModule } from "./roles/roles.module.js";
 import { UsersModule } from "./users/users.module.js";
 import { CarePlansModule } from "./care-plans/care-plans.module.js";
+import { DemoDataModule } from "./demo-data/demo-data.module.js";
+import { IncidentsModule } from "./incidents/incidents.module.js";
 
 @Module({
     imports: [
@@ -21,9 +23,12 @@ import { CarePlansModule } from "./care-plans/care-plans.module.js";
         DashboardModule, 
         ResidentsModule, 
         AdmissionsModule,
-        CarePlansModule
+        CarePlansModule,
+        DemoDataModule,
+        IncidentsModule
     ],
     controllers: [AppController],
     providers: [AppService],
 })
 export class AppModule {}
+

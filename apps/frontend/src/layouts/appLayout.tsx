@@ -1,4 +1,4 @@
-import { Calendar, ClipboardList, HeartPulse, LayoutDashboard, LogIn, Stethoscope, UserRound, Users } from "lucide-react";
+import { Calendar, ClipboardList, HeartPulse, LayoutDashboard, LogIn, Stethoscope, UserRound, Users, ShieldAlert } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { APP_ROUTES } from "../constants/appRoutes";
 
@@ -37,6 +37,12 @@ const navigationItems = [
         label: "Care Plans",
         to: APP_ROUTES.CARE_PLANS,
         icon: ClipboardList,
+        end: false,
+    },
+    {
+        label: "Incident & Risk",
+        to: "/incidents/INC-2044",
+        icon: ShieldAlert,
         end: false,
     },
     {

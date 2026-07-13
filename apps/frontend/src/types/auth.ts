@@ -25,6 +25,8 @@ export interface LoginResponse {
   tempCode?: string;
   phoneHint?: string | null;
   accessToken?: string;
+  refreshToken?: string;
+  user?: User;
 }
 
 /** Returned by POST /api/auth/verify-otp */

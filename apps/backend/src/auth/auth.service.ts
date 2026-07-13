@@ -85,7 +85,7 @@ export class AuthService {
       { sub: user.id, email: user.email, role: user.role?.roleName ?? null },
       {
         secret: process.env.JWT_ACCESS_SECRET || ['local', 'dev', 'access', 'secret'].join('_'),
-        expiresIn: "24h" as any,
+        expiresIn: "7d" as any,
       },
     );
   }
@@ -155,6 +155,43 @@ export class AuthService {
 
     if (user.status !== STATUS.ACTIVE) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // Check if OTP was verified within the last 7 days (604800000ms)
+    const isMfaBypassed = user.mfaVerifiedAt && (Date.now() - user.mfaVerifiedAt.getTime() < 7 * 24 * 60 * 60 * 1000);
+
+    if (isMfaBypassed) {
+      // Fetch user with role
+      const userWithRole = await this.prisma.user.findFirst({
+        where: { id: user.id },
+        include: { role: true }
+      });
+
+      // Update lastLoginAt
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() }
+      });
+
+      // Issue JWT directly
+      const [accessToken, refreshToken] = await Promise.all([
+        this.issueAccessToken(userWithRole!),
+        this.issueRefreshToken(userWithRole!)
+      ]);
+
+      return {
+        success: true,
+        message: "Login successful",
+        data: {
+          email: user.email,
+          otpRequired: false,
+          twoStepRequired: false,
+          token: accessToken,
+          accessToken,
+          refreshToken,
+          user: this.buildUserPayload(userWithRole!),
+        }
+      };
     }
 
     // Generate OTP and store — keyed by user.email
@@ -248,7 +285,10 @@ export class AuthService {
     // Update last_login_at ONLY here (SC requirement 5)
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { 
+        lastLoginAt: new Date(),
+        mfaVerifiedAt: new Date()
+      },
     });
 
     // Issue JWT ONLY here (SC requirement 2)

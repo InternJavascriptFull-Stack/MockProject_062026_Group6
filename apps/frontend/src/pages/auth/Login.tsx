@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthLayout } from "../../components/auth/AuthLayout";
 import { authService } from "../../services/auth";
+import { session } from "../../utils/session";
 
 export function Login() {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ export function Login() {
 
     if (!password) {
       newErrors.password = "Password is required";
+    } else if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     setErrors(newErrors);
@@ -33,8 +36,6 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setDemoCode(null);
-
     if (!validate()) return;
 
     setIsLoading(true);
@@ -61,6 +62,15 @@ export function Login() {
             },
             response.data.tempCode ? 2000 : 0,
           );
+        } else {
+          // MFA bypassed (logged in within 7 days)
+          const { accessToken, refreshToken, user } = response.data;
+          if (accessToken && refreshToken && user) {
+            session.save(accessToken, refreshToken, user);
+          }
+          
+          const isSystemAdmin = user?.roleName?.toLowerCase().includes("admin");
+          navigate(isSystemAdmin ? "/dashboard/admin" : "/dashboard", { replace: true });
         }
       } else {
         setErrors({ api: response.message || "Invalid email or password" });

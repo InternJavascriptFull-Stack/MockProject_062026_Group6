@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { CreateResidentDto } from "./dto/create-resident.dto.js";
@@ -36,6 +36,7 @@ export class ResidentsService {
             allergies: undefined,
             currentMedications: undefined,
             mobilityStatus: undefined,
+            isChartLocked: resident.is_chart_locked,
         };
     }
 
@@ -80,6 +81,16 @@ export class ResidentsService {
         }
 
         return "PENDING";
+    }
+
+    async checkChartLock(id: string) {
+        const res = await this.prisma.residents.findUnique({
+            where: { id },
+            select: { is_chart_locked: true },
+        });
+        if (res?.is_chart_locked) {
+            throw new ForbiddenException("Resident chart is locked. Modifications are not allowed.");
+        }
     }
 
     async findAll(query: ListResidentsQueryDto) {
@@ -148,6 +159,7 @@ export class ResidentsService {
 
     async update(id: string, dto: UpdateResidentDto) {
         await this.findOne(id);
+        await this.checkChartLock(id);
 
         const data: Prisma.residentsUpdateInput = {
             ...(dto.fullName !== undefined ? this.splitFullName(dto.fullName) : {}),
@@ -166,6 +178,7 @@ export class ResidentsService {
 
     async updateStatus(id: string, dto: UpdateResidentStatusDto) {
         await this.findOne(id);
+        await this.checkChartLock(id);
 
         const resident = await this.prisma.residents.update({
             where: { id },

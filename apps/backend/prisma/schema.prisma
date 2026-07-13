@@ -21,6 +21,7 @@ model User {
   status                                                 String                     @default("ACTIVE", map: "DF__users__status__52593CB8") @db.VarChar(20)
   mfaEnabled                                             Boolean                    @default(false, map: "DF__users__mfa_enabl__5441852A") @map("mfa_enabled")
   lastLoginAt                                            DateTime?                  @map("last_login_at") @db.DateTimeOffset
+  mfaVerifiedAt                                          DateTime?                  @map("mfa_verified_at") @db.DateTimeOffset
   isDeleted                                              Boolean                    @default(false, map: "DF__users__is_delete__5535A963") @map("is_deleted")
   deletedAt                                              DateTime?                  @map("deleted_at") @db.DateTimeOffset
   createdAt                                              DateTime                   @default(dbgenerated("sysdatetimeoffset()"), map: "DF__users__created_a__5629CD9C") @map("created_at") @db.DateTimeOffset
@@ -336,6 +337,9 @@ model chart_lock_events {
   event_time       DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__chart_loc__event__3FD07829") @db.DateTimeOffset
   incidents        incidents @relation(fields: [incident_id], references: [id], onUpdate: NoAction, map: "FK__chart_loc__incid__3DE82FB7")
   users            User?     @relation(fields: [unlocked_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__chart_loc__unloc__3EDC53F0")
+
+  locked_by        String?   @db.UniqueIdentifier
+  lock_reason      String?   @db.NVarChar(Max)
 
   @@index([incident_id], map: "idx_chart_lock_events_incident_id")
 }
