@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { APP_ROUTES } from "../../constants/appRoutes";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
-import { CARE_LEVEL_LABEL, COGNITIVE_STATUS_LABEL, FALL_RISK_LABEL, GENDER_LABEL, MOBILITY_STATUS_LABEL } from "./constants";
+import { APP_ROUTES } from "../../constants/appRoutes";
+import { CARE_LEVEL_LABEL, GENDER_LABEL, MOBILITY_STATUS_LABEL } from "./constants";
 import { ReceptionField, TextArea, TextInput } from "./components/receptionField";
 import { residentRepository } from "./services/residentRepository";
-import type { CareLevel, CognitiveStatus, FallRisk, Gender, MobilityStatus, ResidentEvaluationPayload } from "./types";
+import type { CareLevel, Gender, MobilityStatus, Resident, ResidentFormPayload } from "./types";
 
-type FlatReceptionForm = {
+type ResidentFormState = {
     fullName: string;
     dateOfBirth: string;
     gender: Gender | "";
@@ -26,48 +26,36 @@ type FlatReceptionForm = {
     allergies: string;
     currentMedications: string;
     mobilityStatus: MobilityStatus | "";
-    cognitiveStatus: CognitiveStatus | "";
-    fallRisk: FallRisk | "";
-    painLevel: number;
-    nutritionNotes: string;
-    clinicalNotes: string;
 };
 
-type FormErrors = Partial<Record<keyof FlatReceptionForm, string>>;
+type FormErrors = Partial<Record<keyof ResidentFormState, string>>;
 
 const genderOptions: Gender[] = ["female", "male", "other"];
 const careLevelOptions: CareLevel[] = ["independent", "assisted_living", "memory_care", "skilled_nursing"];
 const mobilityOptions: MobilityStatus[] = ["independent", "walker", "wheelchair", "bed_bound"];
-const cognitiveOptions: CognitiveStatus[] = ["alert_oriented", "mild_impairment", "moderate_impairment", "severe_impairment"];
-const fallRiskOptions: FallRisk[] = ["low", "medium", "high"];
 
-const formSchema = z.object({
-    fullName: z.string().trim().min(2, "Full name is required."),
+const residentFormSchema = z.object({
+    fullName: z.string().trim().min(2, "Full name must be at least 2 characters."),
     dateOfBirth: z.string().min(1, "Date of birth is required."),
     gender: z.enum(["male", "female", "other"], "Gender is required."),
     phone: z.string(),
     address: z.string(),
     admissionDate: z.string().min(1, "Admission date is required."),
-    roomNumber: z.string(),
+    roomNumber: z.string().trim().min(1, "Room is required."),
     careLevel: z.enum(["independent", "assisted_living", "memory_care", "skilled_nursing"], "Care level is required."),
     assignedNurse: z.string(),
     assignedDoctor: z.string(),
     emergencyContactName: z.string().trim().min(2, "Emergency contact name is required."),
     emergencyContactRelationship: z.string(),
     emergencyContactPhone: z.string().trim().min(7, "Emergency contact phone is required."),
-    emergencyContactEmail: z.string().email("Enter a valid email address.").or(z.literal("")),
+    emergencyContactEmail: z.string().email("Enter a valid emergency contact email.").or(z.literal("")),
     primaryDiagnosis: z.string(),
     allergies: z.string(),
     currentMedications: z.string(),
     mobilityStatus: z.enum(["independent", "walker", "wheelchair", "bed_bound"]).or(z.literal("")),
-    cognitiveStatus: z.enum(["alert_oriented", "mild_impairment", "moderate_impairment", "severe_impairment"]).or(z.literal("")),
-    fallRisk: z.enum(["low", "medium", "high"]).or(z.literal("")),
-    painLevel: z.coerce.number().min(0).max(10),
-    nutritionNotes: z.string(),
-    clinicalNotes: z.string(),
 });
 
-const initialForm: FlatReceptionForm = {
+const initialForm: ResidentFormState = {
     fullName: "",
     dateOfBirth: "",
     gender: "",
@@ -86,76 +74,116 @@ const initialForm: FlatReceptionForm = {
     allergies: "",
     currentMedications: "",
     mobilityStatus: "",
-    cognitiveStatus: "",
-    fallRisk: "",
-    painLevel: 0,
-    nutritionNotes: "",
-    clinicalNotes: "",
 };
 
-const toPayload = (form: FlatReceptionForm): ResidentEvaluationPayload => ({
-    personalInfo: {
-        fullName: form.fullName,
-        dateOfBirth: form.dateOfBirth,
-        gender: form.gender,
-        phone: form.phone,
-        address: form.address,
-    },
-    admissionInfo: {
-        admissionDate: form.admissionDate,
-        roomNumber: form.roomNumber,
-        careLevel: form.careLevel,
-        assignedNurse: form.assignedNurse,
-        assignedDoctor: form.assignedDoctor,
-    },
-    emergencyContact: {
-        name: form.emergencyContactName,
-        relationship: form.emergencyContactRelationship,
-        phone: form.emergencyContactPhone,
-        email: form.emergencyContactEmail,
-    },
-    medicalSummary: {
-        primaryDiagnosis: form.primaryDiagnosis,
-        allergies: form.allergies,
-        currentMedications: form.currentMedications,
-        mobilityStatus: form.mobilityStatus,
-    },
-    initialEvaluation: {
-        cognitiveStatus: form.cognitiveStatus,
-        fallRisk: form.fallRisk,
-        painLevel: form.painLevel,
-        nutritionNotes: form.nutritionNotes,
-        clinicalNotes: form.clinicalNotes,
-    },
+const mapResidentToForm = (resident: Resident): ResidentFormState => ({
+    fullName: resident.fullName,
+    dateOfBirth: resident.dateOfBirth,
+    gender: resident.gender,
+    phone: resident.phone ?? "",
+    address: resident.address ?? "",
+    admissionDate: resident.admissionDate,
+    roomNumber: resident.roomNumber ?? "",
+    careLevel: resident.careLevel,
+    assignedNurse: resident.assignedNurse ?? "",
+    assignedDoctor: resident.assignedDoctor ?? "",
+    emergencyContactName: resident.emergencyContactName,
+    emergencyContactRelationship: resident.emergencyContactRelationship ?? "",
+    emergencyContactPhone: resident.emergencyContactPhone,
+    emergencyContactEmail: resident.emergencyContactEmail ?? "",
+    primaryDiagnosis: resident.primaryDiagnosis ?? "",
+    allergies: resident.allergies ?? "",
+    currentMedications: resident.currentMedications ?? "",
+    mobilityStatus: resident.mobilityStatus ?? "",
 });
 
-export function ResidentReceptionPage() {
+const toPayload = (form: ResidentFormState): ResidentFormPayload => ({
+    fullName: form.fullName,
+    dateOfBirth: form.dateOfBirth,
+    gender: form.gender as Gender,
+    phone: form.phone,
+    address: form.address,
+    admissionDate: form.admissionDate,
+    roomNumber: form.roomNumber,
+    careLevel: form.careLevel as CareLevel,
+    assignedNurse: form.assignedNurse,
+    assignedDoctor: form.assignedDoctor,
+    emergencyContactName: form.emergencyContactName,
+    emergencyContactRelationship: form.emergencyContactRelationship,
+    emergencyContactPhone: form.emergencyContactPhone,
+    emergencyContactEmail: form.emergencyContactEmail,
+    primaryDiagnosis: form.primaryDiagnosis,
+    allergies: form.allergies,
+    currentMedications: form.currentMedications,
+    mobilityStatus: form.mobilityStatus,
+});
+
+export function ResidentFormPage() {
+    const { id } = useParams();
+    const navigate = useNavigate();
     const [form, setForm] = useState(initialForm);
     const [errors, setErrors] = useState<FormErrors>({});
+    const [isLoading, setIsLoading] = useState(Boolean(id));
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [successMessage, setSuccessMessage] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
+
+    const isEditMode = Boolean(id);
+
+    useEffect(() => {
+        if (!id) {
+            return;
+        }
+
+        let isActive = true;
+        setIsLoading(true);
+
+        residentRepository
+            .getResident(id)
+            .then((resident) => {
+                if (isActive) {
+                    setForm(mapResidentToForm(resident));
+                }
+            })
+            .catch(() => {
+                if (isActive) {
+                    setErrorMessage("Unable to load resident profile.");
+                }
+            })
+            .finally(() => {
+                if (isActive) {
+                    setIsLoading(false);
+                }
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, [id]);
 
     const completionScore = useMemo(() => {
-        const requiredFields: Array<keyof FlatReceptionForm> = ["fullName", "dateOfBirth", "gender", "admissionDate", "careLevel", "emergencyContactName", "emergencyContactPhone"];
+        const requiredFields: Array<keyof ResidentFormState> = [
+            "fullName",
+            "dateOfBirth",
+            "gender",
+            "roomNumber",
+            "admissionDate",
+            "careLevel",
+            "emergencyContactName",
+            "emergencyContactPhone",
+        ];
         const completedFields = requiredFields.filter((field) => String(form[field]).trim());
 
         return Math.round((completedFields.length / requiredFields.length) * 100);
     }, [form]);
 
-    const updateField = <Key extends keyof FlatReceptionForm>(field: Key, value: FlatReceptionForm[Key]) => {
-        setForm((currentForm) => ({
-            ...currentForm,
-            [field]: value,
-        }));
-        setErrors((currentErrors) => ({
-            ...currentErrors,
-            [field]: undefined,
-        }));
-        setSuccessMessage("");
+    const updateField = <Key extends keyof ResidentFormState>(field: Key, value: ResidentFormState[Key]) => {
+        setForm((currentForm) => ({ ...currentForm, [field]: value }));
+        setErrors((currentErrors) => ({ ...currentErrors, [field]: undefined }));
+        setErrorMessage("");
     };
 
     const validateForm = () => {
-        const result = formSchema.safeParse(form);
+        const result = residentFormSchema.safeParse(form);
 
         if (result.success) {
             setErrors({});
@@ -165,7 +193,7 @@ export function ResidentReceptionPage() {
         const nextErrors: FormErrors = {};
 
         for (const issue of result.error.issues) {
-            const field = issue.path[0] as keyof FlatReceptionForm;
+            const field = issue.path[0] as keyof ResidentFormState;
             nextErrors[field] = issue.message;
         }
 
@@ -173,28 +201,42 @@ export function ResidentReceptionPage() {
         return false;
     };
 
-    const handleSubmit = async (mode: "draft" | "submit") => {
-        if (mode === "submit" && !validateForm()) {
+    const handleSubmit = async () => {
+        if (!validateForm()) {
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            const resident = await residentRepository.createPreScreening(toPayload(form));
-            setSuccessMessage(mode === "draft" ? `Draft saved for ${resident.fullName}.` : `${resident.fullName} is ready for clinical review.`);
+            const savedResident = isEditMode && id ? await residentRepository.updateResident(id, toPayload(form)) : await residentRepository.createResident(toPayload(form));
+
+            navigate(`${APP_ROUTES.RESIDENTS}/${savedResident.id}`);
+        } catch {
+            setErrorMessage("Unable to save resident. Please review the form.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    if (isLoading) {
+        return (
+            <main className="page-shell">
+                <div className="empty-state">
+                    <strong>Loading resident form...</strong>
+                    <span>Preparing resident information.</span>
+                </div>
+            </main>
+        );
+    }
+
     return (
         <main className="page-shell">
             <section className="page-header">
                 <div>
-                    <span className="eyebrow">Reception & Evaluation</span>
-                    <h1>Pre-admission Screening</h1>
-                    <p>Capture admission details, emergency contact, medical background, and the initial nursing evaluation.</p>
+                    <span className="eyebrow">Resident Management</span>
+                    <h1>{isEditMode ? "Edit Resident" : "Create Resident"}</h1>
+                    <p>Maintain demographic, admission, care assignment, and emergency contact details for the resident profile.</p>
                 </div>
                 <Link className="secondary-action" to={APP_ROUTES.RESIDENTS}>
                     Back to List
@@ -204,14 +246,14 @@ export function ResidentReceptionPage() {
             <section className="intake-summary">
                 <div>
                     <strong>{completionScore}% complete</strong>
-                    <span>Required intake information</span>
+                    <span>Required resident profile fields</span>
                 </div>
                 <div className="progress-track">
                     <div style={{ width: `${completionScore}%` }} />
                 </div>
             </section>
 
-            {successMessage ? <div className="success-banner">{successMessage}</div> : null}
+            {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
 
             <form className="intake-form">
                 <section className="form-card">
@@ -219,7 +261,7 @@ export function ResidentReceptionPage() {
                         <span>01</span>
                         <div>
                             <h2>Personal Information</h2>
-                            <p>Basic demographic and contact details.</p>
+                            <p>Demographics and direct contact information.</p>
                         </div>
                     </div>
                     <div className="form-grid">
@@ -242,7 +284,7 @@ export function ResidentReceptionPage() {
                             </select>
                         </ReceptionField>
                         <TextInput label="Phone" value={form.phone} onChange={(event) => updateField("phone", event.target.value)} />
-                        <TextArea label="Home address" value={form.address} onChange={(event) => updateField("address", event.target.value)} />
+                        <TextArea label="Address" value={form.address} onChange={(event) => updateField("address", event.target.value)} />
                     </div>
                 </section>
 
@@ -250,8 +292,8 @@ export function ResidentReceptionPage() {
                     <div className="form-card__header">
                         <span>02</span>
                         <div>
-                            <h2>Admission Information</h2>
-                            <p>Assign the resident to the right care workflow.</p>
+                            <h2>Admission</h2>
+                            <p>Room, admission date, care level, and assigned clinicians.</p>
                         </div>
                     </div>
                     <div className="form-grid">
@@ -262,7 +304,7 @@ export function ResidentReceptionPage() {
                             error={errors.admissionDate}
                             onChange={(event) => updateField("admissionDate", event.target.value)}
                         />
-                        <TextInput label="Room number" placeholder="A-104" value={form.roomNumber} onChange={(event) => updateField("roomNumber", event.target.value)} />
+                        <TextInput label="Room" value={form.roomNumber} error={errors.roomNumber} onChange={(event) => updateField("roomNumber", event.target.value)} />
                         <ReceptionField label="Care level" error={errors.careLevel}>
                             <select value={form.careLevel} onChange={(event) => updateField("careLevel", event.target.value as CareLevel | "")}>
                                 <option value="">Select care level</option>
@@ -273,18 +315,8 @@ export function ResidentReceptionPage() {
                                 ))}
                             </select>
                         </ReceptionField>
-                        <TextInput
-                            label="Assigned nurse"
-                            placeholder="Sarah Johnson, RN"
-                            value={form.assignedNurse}
-                            onChange={(event) => updateField("assignedNurse", event.target.value)}
-                        />
-                        <TextInput
-                            label="Assigned physician"
-                            placeholder="Dr. Michael Brown"
-                            value={form.assignedDoctor}
-                            onChange={(event) => updateField("assignedDoctor", event.target.value)}
-                        />
+                        <TextInput label="Assigned nurse" value={form.assignedNurse} onChange={(event) => updateField("assignedNurse", event.target.value)} />
+                        <TextInput label="Assigned physician" value={form.assignedDoctor} onChange={(event) => updateField("assignedDoctor", event.target.value)} />
                     </div>
                 </section>
 
@@ -293,7 +325,7 @@ export function ResidentReceptionPage() {
                         <span>03</span>
                         <div>
                             <h2>Emergency Contact</h2>
-                            <p>Primary contact for consent and urgent communication.</p>
+                            <p>Primary contact for urgent communication and consent.</p>
                         </div>
                     </div>
                     <div className="form-grid">
@@ -305,7 +337,6 @@ export function ResidentReceptionPage() {
                         />
                         <TextInput
                             label="Relationship"
-                            placeholder="Daughter"
                             value={form.emergencyContactRelationship}
                             onChange={(event) => updateField("emergencyContactRelationship", event.target.value)}
                         />
@@ -329,8 +360,8 @@ export function ResidentReceptionPage() {
                     <div className="form-card__header">
                         <span>04</span>
                         <div>
-                            <h2>Medical Summary</h2>
-                            <p>Clinical background for the receiving care team.</p>
+                            <h2>Clinical Summary</h2>
+                            <p>Care notes visible from the resident profile.</p>
                         </div>
                     </div>
                     <div className="form-grid">
@@ -345,60 +376,18 @@ export function ResidentReceptionPage() {
                                 ))}
                             </select>
                         </ReceptionField>
-                        <TextArea label="Known allergies" value={form.allergies} onChange={(event) => updateField("allergies", event.target.value)} />
+                        <TextArea label="Allergies" value={form.allergies} onChange={(event) => updateField("allergies", event.target.value)} />
                         <TextArea label="Current medications" value={form.currentMedications} onChange={(event) => updateField("currentMedications", event.target.value)} />
-                    </div>
-                </section>
-
-                <section className="form-card">
-                    <div className="form-card__header">
-                        <span>05</span>
-                        <div>
-                            <h2>Initial Evaluation</h2>
-                            <p>Risk screening and nursing notes at admission.</p>
-                        </div>
-                    </div>
-                    <div className="form-grid">
-                        <ReceptionField label="Cognitive status">
-                            <select value={form.cognitiveStatus} onChange={(event) => updateField("cognitiveStatus", event.target.value as CognitiveStatus | "")}>
-                                <option value="">Select cognitive status</option>
-                                {cognitiveOptions.map((status) => (
-                                    <option key={status} value={status}>
-                                        {COGNITIVE_STATUS_LABEL[status]}
-                                    </option>
-                                ))}
-                            </select>
-                        </ReceptionField>
-                        <ReceptionField label="Fall risk">
-                            <select value={form.fallRisk} onChange={(event) => updateField("fallRisk", event.target.value as FallRisk | "")}>
-                                <option value="">Select fall risk</option>
-                                {fallRiskOptions.map((risk) => (
-                                    <option key={risk} value={risk}>
-                                        {FALL_RISK_LABEL[risk]}
-                                    </option>
-                                ))}
-                            </select>
-                        </ReceptionField>
-                        <TextInput
-                            label="Pain level (0-10)"
-                            type="number"
-                            min={0}
-                            max={10}
-                            value={form.painLevel}
-                            onChange={(event) => updateField("painLevel", Number(event.target.value))}
-                        />
-                        <TextArea label="Nutrition notes" value={form.nutritionNotes} onChange={(event) => updateField("nutritionNotes", event.target.value)} />
-                        <TextArea label="Clinical notes" value={form.clinicalNotes} onChange={(event) => updateField("clinicalNotes", event.target.value)} />
                     </div>
                 </section>
             </form>
 
             <footer className="sticky-actions">
-                <button className="secondary-action" type="button" disabled={isSubmitting} onClick={() => handleSubmit("draft")}>
-                    Save Draft
-                </button>
-                <button className="primary-action" type="button" disabled={isSubmitting} onClick={() => handleSubmit("submit")}>
-                    {isSubmitting ? "Saving..." : "Submit Evaluation"}
+                <Link className="secondary-action" to={APP_ROUTES.RESIDENTS}>
+                    Cancel
+                </Link>
+                <button className="primary-action" type="button" disabled={isSubmitting} onClick={handleSubmit}>
+                    {isSubmitting ? "Saving..." : isEditMode ? "Save Changes" : "Create Resident"}
                 </button>
             </footer>
         </main>
