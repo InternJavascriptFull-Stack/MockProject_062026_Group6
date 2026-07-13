@@ -9,9 +9,20 @@ import { PrismaModule } from "./prisma/prisma.module.js";
 import { ResidentsModule } from "./residents/residents.module.js";
 import { RolesModule } from "./roles/roles.module.js";
 import { UsersModule } from "./users/users.module.js";
+import { CarePlansModule } from "./care-plans/care-plans.module.js";
 
 @Module({
-    imports: [PrismaModule, AuthModule, UsersModule, RolesModule, FacilitiesModule, DashboardModule, ResidentsModule, AdmissionsModule],
+    imports: [
+        PrismaModule, 
+        AuthModule, 
+        UsersModule, 
+        RolesModule, 
+        FacilitiesModule, 
+        DashboardModule, 
+        ResidentsModule, 
+        AdmissionsModule,
+        CarePlansModule
+    ],
     controllers: [AppController],
     providers: [AppService],
 })

@@ -34,10 +34,10 @@ const navigationItems = [
         end: true,
     },
     {
-        label: "Care Plan",
-        to: APP_ROUTES.CARE_PLAN,
+        label: "Care Plans",
+        to: APP_ROUTES.CARE_PLANS,
         icon: ClipboardList,
-        end: true,
+        end: false,
     },
     {
         label: "Login",

@@ -5,6 +5,7 @@ import { TwoStepVerification } from "./pages/auth/TwoStepVerification";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { AppLayout } from "./layouts/appLayout";
+
 import UserList from "./pages/users/UserList";
 import UserForm from "./pages/users/UserForm";
 import RoleMatrix from "./pages/roles/RoleMatrix";
@@ -16,6 +17,12 @@ import { ResidentListPage } from "./pages/residents/residentListPage";
 import { ResidentFormPage } from "./pages/residents/residentFormPage";
 import { ResidentProfileDetailPage } from "./pages/residents/residentProfileDetailPage";
 import { ResidentReceptionPage } from "./pages/residents/residentReceptionPage";
+
+// Care Plan pages
+import { CarePlanListPage } from "./pages/carePlan/carePlanListPage";
+import { CreateCarePlanPage } from "./pages/carePlan/createCarePlanPage";
+import { DonReviewPage } from "./pages/carePlan/donReviewPage";
+import { IdtAcknowledgmentPage } from "./pages/carePlan/idtAcknowledgmentPage";
 
 function App() {
     return (
@@ -101,7 +108,11 @@ function App() {
                 <Route path="/residents/reception" element={<ResidentReceptionPage />} />
                 <Route path="/doctor-schedule" element={<DoctorsSchedulePage />} />
                 <Route path="/emar" element={<EmarPage />} />
-                <Route path="/care-plan" element={<CarePlanPage />} />
+                <Route path="/care-plans" element={<CarePlanListPage />} />
+                <Route path="/care-plans/new" element={<CreateCarePlanPage />} />
+                <Route path="/care-plans/:id" element={<CarePlanPage />} />
+                <Route path="/care-plans/:id/review" element={<DonReviewPage />} />
+                <Route path="/care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />

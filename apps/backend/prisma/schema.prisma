@@ -43,6 +43,12 @@ model User {
   role                                                   Role                       @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "FK__users__role_id__5165187F")
   vital_signs                                            vital_signs[]
 
+  // --- Care Plan Relations ---
+  created_care_plans care_plans[] @relation("CarePlanCreator")
+  care_plan_reviews  care_plan_reviews[]
+  care_plan_signs    care_plan_signatures[]
+  idt_acks           idt_acknowledgments[]
+
   @@index([roleId], map: "idx_users_role_id")
   @@map("users")
 }
@@ -212,6 +218,7 @@ model beds {
 model care_goals {
   id           String     @id(map: "PK__care_goa__3213E83F55991026") @default(dbgenerated("newid()"), map: "DF__care_goals__id__5AB9788F") @db.UniqueIdentifier
   care_plan_id String     @db.UniqueIdentifier
+  description  String     @default("") @db.NVarChar(500)
   status       String     @db.VarChar(20)
   care_plans   care_plans @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction, map: "FK__care_goal__care___5BAD9CC8")
 
@@ -220,6 +227,7 @@ model care_goals {
 
 model care_interventions {
   id            String       @id(map: "PK__care_int__3213E83FFA61C737") @default(dbgenerated("newid()"), map: "DF__care_interve__id__5F7E2DAC") @db.UniqueIdentifier
+  description   String       @default("") @db.NVarChar(500)
   assigned_role String       @db.VarChar(50)
   care_plan_id  String       @db.UniqueIdentifier
   care_plans    care_plans   @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction, map: "FK__care_inte__care___607251E5")
@@ -253,16 +261,21 @@ model care_levels {
 }
 
 model care_plans {
-  id                      String               @id(map: "PK__care_pla__3213E83FA4350B3D") @default(dbgenerated("newid()"), map: "DF__care_plans__id__5224328E") @db.UniqueIdentifier
-  resident_id             String               @db.UniqueIdentifier
-  status                  String               @db.VarChar(20)
-  significant_change_flag Boolean              @default(false, map: "DF__care_plan__signi__55009F39")
-  is_deleted              Boolean              @default(false, map: "DF__care_plan__is_de__55F4C372")
-  created_at              DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__care_plan__creat__56E8E7AB") @db.DateTimeOffset
-  updated_at              DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__care_plan__updat__57DD0BE4") @db.DateTimeOffset
+  id                      String                 @id(map: "PK__care_pla__3213E83FA4350B3D") @default(dbgenerated("newid()"), map: "DF__care_plans__id__5224328E") @db.UniqueIdentifier
+  resident_id             String                 @db.UniqueIdentifier
+  created_by              String?                @db.UniqueIdentifier
+  status                  String                 @db.VarChar(20)
+  significant_change_flag Boolean                @default(false, map: "DF__care_plan__signi__55009F39")
+  is_deleted              Boolean                @default(false, map: "DF__care_plan__is_de__55F4C372")
+  created_at              DateTime               @default(dbgenerated("sysdatetimeoffset()"), map: "DF__care_plan__creat__56E8E7AB") @db.DateTimeOffset
+  updated_at              DateTime               @default(dbgenerated("sysdatetimeoffset()"), map: "DF__care_plan__updat__57DD0BE4") @db.DateTimeOffset
   care_goals              care_goals[]
   care_interventions      care_interventions[]
-  residents               residents            @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__care_plan__resid__531856C7")
+  care_plan_reviews       care_plan_reviews[]
+  care_plan_signatures    care_plan_signatures[]
+  idt_acknowledgments     idt_acknowledgments[]
+  users                   User?                  @relation(fields: [created_by], references: [id], name: "CarePlanCreator", onDelete: NoAction, onUpdate: NoAction)
+  residents               residents              @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__care_plan__resid__531856C7")
 
   @@index([resident_id], map: "idx_care_plans_resident_id")
 }
@@ -281,6 +294,37 @@ model care_tasks {
 
   @@index([assigned_cna_id], map: "idx_care_tasks_assigned_cna_id")
   @@index([care_intervention_id], map: "idx_care_tasks_intervention_id")
+}
+
+model care_plan_reviews {
+  id            String     @id @default(uuid()) @db.UniqueIdentifier
+  care_plan_id  String     @db.UniqueIdentifier
+  reviewer_id   String     @db.UniqueIdentifier
+  status        String     @db.VarChar(20)
+  notes         String?    @db.NVarChar(500)
+  reviewed_at   DateTime   @default(now()) @db.DateTimeOffset
+  care_plans    care_plans @relation(fields: [care_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users         User       @relation(fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model care_plan_signatures {
+  id              String     @id @default(uuid()) @db.UniqueIdentifier
+  care_plan_id    String     @db.UniqueIdentifier
+  signer_id       String     @db.UniqueIdentifier
+  signature_token String     @db.NVarChar(512)
+  signed_at       DateTime   @default(now()) @db.DateTimeOffset
+  care_plans      care_plans @relation(fields: [care_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           User       @relation(fields: [signer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model idt_acknowledgments {
+  id              String     @id @default(uuid()) @db.UniqueIdentifier
+  care_plan_id    String     @db.UniqueIdentifier
+  user_id         String     @db.UniqueIdentifier
+  notes           String?    @db.NVarChar(500)
+  acknowledged_at DateTime   @default(now()) @db.DateTimeOffset
+  care_plans      care_plans @relation(fields: [care_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           User       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model chart_lock_events {
