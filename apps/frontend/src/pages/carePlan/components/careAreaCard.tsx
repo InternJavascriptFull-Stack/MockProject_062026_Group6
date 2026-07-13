@@ -8,6 +8,8 @@ type CareAreaProps = {
   measure: string;
   target: string;
   tasks: string[];
+  onRemove?: () => void;
+  onChange?: (field: string, value: any) => void;
 };
 
 export function CareAreaCard({
@@ -17,44 +19,79 @@ export function CareAreaCard({
   measure,
   target,
   tasks,
+  onRemove,
+  onChange
 }: CareAreaProps) {
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+          <h3 className="text-lg font-bold text-slate-900">
+            {onChange ? (
+              <input 
+                type="text" 
+                value={title} 
+                onChange={e => onChange("title", e.target.value)}
+                placeholder="Care Area Title..."
+                className="border-b border-dashed border-slate-300 bg-transparent outline-none focus:border-blue-500" 
+              />
+            ) : title}
+          </h3>
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
               badge.variant === "blue"
-                ? "bg-blue-100 text-blue-700"
-                : "border border-slate-200 bg-slate-50 text-slate-600"
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : "border-slate-200 bg-slate-50 text-slate-600"
             }`}
           >
             {badge.text}
           </span>
         </div>
-        <button className="text-sm font-medium text-slate-500 hover:text-slate-700">
-          Remove
-        </button>
+        {onRemove && (
+          <button onClick={onRemove} className="text-slate-400 hover:text-red-500 transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        )}
       </div>
 
-      <div className="mb-2">
-        <span className="font-semibold text-slate-700">Goal:</span>
-        <p className="mt-1 text-sm text-slate-700">{goal}</p>
+      <div className="mb-4 space-y-3">
+        <div>
+          <span className="font-semibold text-slate-700 text-sm">Goal: </span>
+          {onChange ? (
+            <input 
+              type="text" 
+              value={goal} 
+              onChange={e => onChange("goal", e.target.value)}
+              placeholder="Enter goal..."
+              className="w-full border-b border-dashed border-slate-300 bg-transparent outline-none focus:border-blue-500 text-sm" 
+            />
+          ) : (
+            <span className="text-sm text-slate-600">{goal}</span>
+          )}
+        </div>
       </div>
-
-      <div className="mb-3 text-xs text-slate-500">
-        Measure: {measure} <span className="mx-1">·</span> Target: {target}
+      
+      <div className="flex items-center gap-6 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+        <div className="flex-1">
+          <span className="font-semibold text-slate-700 block mb-1">Measure:</span>
+          {onChange ? (
+            <input 
+              type="text" 
+              value={measure} 
+              onChange={e => onChange("measure", e.target.value)}
+              placeholder="How to measure..."
+              className="w-full border-b border-dashed border-slate-300 bg-transparent outline-none focus:border-blue-500" 
+            />
+          ) : measure}
+        </div>
+        <div className="w-px h-8 bg-slate-200"></div>
+        <div className="flex-1">
+          <span className="font-semibold text-slate-700 block mb-1">Target Date:</span>
+          {onChange ? (
+            <input type="date" value={target} onChange={e => onChange("target", e.target.value)} className="w-full border-b border-dashed border-slate-300 bg-transparent outline-none focus:border-blue-500" />
+          ) : target}
+        </div>
       </div>
-
-      <ul className="space-y-1">
-        {tasks.map((task, index) => (
-          <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-            <span>{task}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

@@ -1,31 +1,43 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { APP_ROUTES } from "../../constants/appRoutes";
 import { ActivityTimeline } from "./components/activityTimeline";
 import { CareAreaViewCard } from "./components/careAreaViewCard";
 import { CostEstimateCard } from "./components/carePlanSidePanels";
 import { ReviewCycleCard } from "./components/reviewCycleCard";
+import { AssignedTasksTable } from "./components/assignedTasksTable";
+import { session } from "../../utils/session";
 
 export function CarePlanPage() {
-  const careAreas = [
-    {
-      title: "Mobility",
-      badge: { text: "On Track", variant: "green" as const },
-      goal: "Ambulate 50 ft with walker x2/day.",
-      tasks: ["Assist ambulation w/ walker, 2x daily."],
-    },
-    {
-      title: "Skin Integrity",
-      badge: { text: "At Risk", variant: "yellow" as const },
-      goal: "Maintain skin integrity (no stage-2 injury).",
-      tasks: ["Reposition q2h; skin check each shift."],
-    },
-    {
-      title: "Nutrition",
-      badge: { text: "On Track", variant: "green" as const },
-      goal: "Maintain fluid intake ≥ 1500 mL/day.",
-      tasks: ["Monitor fluid intake; document I/O."],
-    },
-  ];
+  const { id } = useParams<{ id: string }>();
+  const [carePlan, setCarePlan] = useState<any>(null);
+
+  useEffect(() => {
+    fetch(`http://localhost:3000/api/care-plans/${id}`, {
+      headers: { Authorization: `Bearer ${session.getAccessToken()}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) setCarePlan(data.data);
+    });
+  }, [id]);
+
+  if (!carePlan) return <div className="p-8">Loading...</div>;
+
+  const residentName = carePlan.resident ? `${carePlan.resident.firstName} ${carePlan.resident.lastName}` : "Unknown Resident";
+
+  // Map backend goals to UI care areas
+  const mappedCareAreas = carePlan.goals?.map((g: any, index: number) => ({
+    title: `Care Area ${index + 1}`,
+    badge: { text: "Active", variant: "green" as const },
+    goal: g.description,
+  })) || [];
+
+  const tasks = carePlan.interventions?.map((i: any) => ({
+    task: i.description,
+    freq: "Daily", // Default fallback if missing
+    owner: i.assignedRole || "CNA"
+  })) || [];
 
   return (
     <div className="flex h-[calc(100vh-80px)] flex-col bg-slate-50/50">
@@ -39,18 +51,18 @@ export function CarePlanPage() {
               <span>&gt;</span>
               <span>Detail</span>
               <span>&gt;</span>
-              <span>Robert Hayes</span>
+              <span>{residentName}</span>
             </div>
             <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold text-slate-900">
-                Care Plan — Robert Hayes
+                Care Plan — {residentName}
               </h1>
-              <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                Active
+              <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 uppercase">
+                {carePlan.status}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              Room 204B · LOC Tier 3 · Next review 2026-07-07
+              Room 204B · LOC Tier 3 · Created on {new Date(carePlan.createdAt).toLocaleDateString()}
             </p>
           </div>
 
@@ -72,11 +84,11 @@ export function CarePlanPage() {
             <div className="min-w-0">
               <div className="mb-4 text-sm font-bold text-slate-700">Care Areas</div>
 
-              {careAreas.map((area, idx) => (
+              {mappedCareAreas.length > 0 ? mappedCareAreas.map((area: any, idx: number) => (
                 <CareAreaViewCard key={idx} {...area} />
-              ))}
+              )) : <div className="text-sm text-slate-500 italic mb-4">No care areas defined.</div>}
 
-              <ActivityTimeline />
+              <ActivityTimeline tasks={tasks} />
             </div>
 
             <div className="min-w-0 space-y-6">

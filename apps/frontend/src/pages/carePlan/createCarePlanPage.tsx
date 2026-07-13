@@ -1,37 +1,100 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { APP_ROUTES } from "../../constants/appRoutes";
 import { AssignedTasksTable } from "./components/assignedTasksTable";
 import { CareAreaCard } from "./components/careAreaCard";
 import { CostEstimateCard, PlanStatusCard } from "./components/carePlanSidePanels";
 import { LocGateBanner } from "./components/locGateBanner";
+import { session } from "../../utils/session";
 
 export function CreateCarePlanPage() {
-  const careAreas = [
-    {
-      title: "Mobility",
-      badge: { text: "Suggested from Assessment", variant: "blue" as const },
-      goal: "Resident will ambulate 50 ft with walker x2/day by 2026-07-30.",
-      measure: "distance log",
-      target: "2026-07-30",
-      tasks: ["Assist ambulation with front-wheel walker, twice daily (AM/PM)."],
-    },
-    {
-      title: "Skin Integrity",
-      badge: { text: "Suggested from Assessment", variant: "blue" as const },
-      goal: "Maintain skin integrity; no stage-2 pressure injury through review cycle.",
-      measure: "Braden score",
-      target: "2026-10-07",
-      tasks: ["Reposition every 2 hours; document skin checks each shift."],
-    },
-    {
-      title: "Nutrition",
-      badge: { text: "Manual", variant: "gray" as const },
-      goal: "Maintain adequate hydration — fluid intake ≥ 1500 mL/day.",
-      measure: "I/O log",
-      target: "ongoing",
-      tasks: ["Encourage 1500 mL fluid intake daily; monitor I/O."],
-    },
-  ];
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [residentId, setResidentId] = useState("");
+  const [residents, setResidents] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("http://localhost:3000/api/care-plans/residents/list", {
+      headers: { Authorization: `Bearer ${session.getAccessToken()}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.data.length > 0) {
+        setResidents(data.data);
+        setResidentId(data.data[0].id);
+      }
+    });
+  }, []);
+
+  const [careAreas, setCareAreas] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+
+  const handleAddArea = () => {
+    setCareAreas([
+      ...careAreas,
+      {
+        id: Date.now().toString(),
+        title: "",
+        badge: { text: "Manual", variant: "gray" as const },
+        goal: "",
+        measure: "",
+        target: "",
+      }
+    ]);
+  };
+
+  const handleRemoveArea = (id: string) => {
+    setCareAreas(careAreas.filter(a => a.id !== id));
+  };
+
+  const handleAreaChange = (id: string, field: string, value: any) => {
+    setCareAreas(careAreas.map(a => a.id === id ? { ...a, [field]: value } : a));
+  };
+
+  const handleSubmit = async (targetStatus: string) => {
+    if (!residentId) return alert("Hệ thống chưa tải xong dữ liệu Cư dân, vui lòng chờ tí!");
+    if (careAreas.length === 0) return alert("Vui lòng thêm ít nhất 1 Care Area!");
+    if (careAreas.some(a => !a.goal.trim())) return alert("Vui lòng nhập Goal cho tất cả Care Areas!");
+
+    setIsSubmitting(true);
+    try {
+      // Chuyển đổi dữ liệu mockup thành payload cho API
+      const payload = {
+        residentId: residentId,
+        status: targetStatus,
+        goals: careAreas.map(c => ({ description: c.goal })),
+        interventions: tasks.filter(t => t.task.trim()).map(t => ({ 
+          description: t.task, 
+          assignedRole: t.owner 
+        }))
+      };
+
+      const res = await fetch("http://localhost:3000/api/care-plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.getAccessToken()}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        navigate(APP_ROUTES.CARE_PLANS);
+      } else {
+        alert("Lỗi tạo Care Plan: " + data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Đã xảy ra lỗi hệ thống!");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const locRate = 150 + careAreas.length * 20;
+  const roomRate = 185;
+  const tier = careAreas.length > 3 ? "Tier 3" : "Tier 2";
 
   // Toggle this to test SC_028 vs SC_027
   const isLocConfirmed = true;
@@ -117,30 +180,50 @@ export function CreateCarePlanPage() {
                 Draft
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-500">Robert Hayes · Room 204B</p>
+            <div className="mt-3 flex items-center gap-3">
+              <label className="text-sm font-bold text-slate-700">Resident:</label>
+              <select
+                value={residentId}
+                onChange={e => setResidentId(e.target.value)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+              >
+                {residents.map(r => (
+                  <option key={r.id} value={r.id}>{r.firstName} {r.lastName}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
             <div className="min-w-0">
-              <LocGateBanner />
+              <LocGateBanner tier={tier} />
 
               <div className="mb-4 text-sm font-bold text-slate-700">
                 Care Areas (Master Care Plan — §3.0)
               </div>
 
-              {careAreas.map((area, idx) => (
-                <CareAreaCard key={idx} {...area} />
+              {careAreas.map((area) => (
+                <CareAreaCard
+                  key={area.id}
+                  {...area}
+                  onRemove={() => handleRemoveArea(area.id)}
+                  onChange={(field, val) => handleAreaChange(area.id, field, val)}
+                />
               ))}
 
-              <button className="mt-2 flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <button
+                type="button"
+                onClick={handleAddArea}
+                className="mt-2 flex h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
                 + Add Care Area
               </button>
 
-              <AssignedTasksTable />
+              <AssignedTasksTable tasks={tasks} onChange={setTasks} />
             </div>
 
-            <div className="min-w-0">
-              <CostEstimateCard />
+            <div className="min-w-0 space-y-6">
+              <CostEstimateCard tier={tier} locRate={locRate} roomRate={roomRate} />
               <PlanStatusCard />
             </div>
           </div>
@@ -149,11 +232,15 @@ export function CreateCarePlanPage() {
 
       <footer className="border-t border-slate-200 bg-white p-4">
         <div className="mx-auto flex max-w-6xl justify-end gap-4">
-          <button className="h-10 rounded-md border border-slate-200 bg-white px-6 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <button onClick={() => handleSubmit("Draft")} disabled={isSubmitting} className="h-10 rounded-md border border-slate-200 bg-white px-6 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Save Draft
           </button>
-          <button className="h-10 rounded-md bg-blue-600 px-6 text-sm font-bold !text-white hover:bg-blue-700">
-            Submit for Review
+          <button
+            disabled={isSubmitting}
+            onClick={() => handleSubmit("Pending Review")}
+            className="h-10 rounded-md bg-blue-600 px-6 text-sm font-bold !text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSubmitting ? "Submitting..." : "Submit for Review"}
           </button>
         </div>
       </footer>

@@ -5,14 +5,16 @@ type CareAreaViewProps = {
     variant: "green" | "yellow";
   };
   goal: string;
-  tasks: string[];
+  measure?: string;
+  target?: string;
 };
 
 export function CareAreaViewCard({
   title,
   badge,
   goal,
-  tasks,
+  measure,
+  target,
 }: CareAreaViewProps) {
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -36,14 +38,17 @@ export function CareAreaViewCard({
         </p>
       </div>
 
-      <ul className="space-y-1">
-        {tasks.map((task, index) => (
-          <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-            <span>{task}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="flex items-center gap-6 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+        <div className="flex-1">
+          <span className="font-semibold text-slate-700 block mb-1">Measure:</span>
+          {measure || "Not specified"}
+        </div>
+        <div className="w-px h-8 bg-slate-200"></div>
+        <div className="flex-1">
+          <span className="font-semibold text-slate-700 block mb-1">Target Date:</span>
+          {target || "Not specified"}
+        </div>
+      </div>
     </div>
   );
 }

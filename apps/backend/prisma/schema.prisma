@@ -28,7 +28,134 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTimeOffset
   facilities    UserFacility[]
 
+  // --- Care Plan Relations ---
+  createdCarePlans CarePlan[] @relation("CarePlanCreator")
+  assignedTasks    CareTask[]
+  carePlanReviews  CarePlanReview[]
+  carePlanSigns    CarePlanSignature[]
+  idtAcks          IdtAcknowledgment[]
+
   @@map("users")
+}
+
+// ==========================================================
+// RESIDENT (Stub for Care Plan linking)
+// ==========================================================
+model Resident {
+  id        String   @id @default(uuid()) @db.UniqueIdentifier
+  firstName String   @map("first_name") @db.NVarChar(100)
+  lastName  String   @map("last_name") @db.NVarChar(100)
+  status    String   @default("PENDING") @db.VarChar(20)
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+
+  carePlans CarePlan[]
+
+  @@map("residents")
+}
+
+// ==========================================================
+// MODULE M2: CARE PLANNING
+// ==========================================================
+model CarePlan {
+  id                    String   @id @default(uuid()) @db.UniqueIdentifier
+  status                String   @default("Draft") @db.VarChar(50) // Draft, Pending Review, Approved, Rejected, Signed
+  significantChangeFlag Boolean  @default(false) @map("significant_change_flag")
+  residentId            String   @map("resident_id") @db.UniqueIdentifier
+  createdBy             String   @map("created_by") @db.UniqueIdentifier
+  isDeleted             Boolean  @default(false) @map("is_deleted")
+  createdAt             DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+
+  resident      Resident           @relation(fields: [residentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator       User               @relation(fields: [createdBy], references: [id], name: "CarePlanCreator", onDelete: NoAction, onUpdate: NoAction)
+  goals         CareGoal[]
+  interventions CareIntervention[]
+  reviews       CarePlanReview[]
+  signatures    CarePlanSignature[]
+  idtAcks       IdtAcknowledgment[]
+
+  @@map("care_plans")
+}
+
+model CareGoal {
+  id          String @id @default(uuid()) @db.UniqueIdentifier
+  description String @db.NVarChar(500)
+  status      String @default("IN_PROGRESS") @db.VarChar(20)
+  carePlanId  String @map("care_plan_id") @db.UniqueIdentifier
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("care_goals")
+}
+
+model CareIntervention {
+  id           String @id @default(uuid()) @db.UniqueIdentifier
+  description  String @db.NVarChar(500)
+  assignedRole String @map("assigned_role") @db.VarChar(50)
+  carePlanId   String @map("care_plan_id") @db.UniqueIdentifier
+
+  carePlan CarePlan   @relation(fields: [carePlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasks    CareTask[]
+
+  @@map("care_interventions")
+}
+
+model CareTask {
+  id                  String    @id @default(uuid()) @db.UniqueIdentifier
+  taskType            String    @map("task_type") @db.VarChar(50)
+  status              String    @default("PENDING") @db.VarChar(20)
+  isAbnormalFlagged   Boolean   @default(false) @map("is_abnormal_flagged")
+  careInterventionId  String    @map("care_intervention_id") @db.UniqueIdentifier
+  assignedCnaId       String?   @map("assigned_cna_id") @db.UniqueIdentifier
+  scheduledTime       DateTime  @map("scheduled_time") @db.DateTimeOffset
+  completedAt         DateTime? @map("completed_at") @db.DateTimeOffset
+
+  careIntervention CareIntervention @relation(fields: [careInterventionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedCna      User?            @relation(fields: [assignedCnaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("care_tasks")
+}
+
+model CarePlanReview {
+  id         String   @id @default(uuid()) @db.UniqueIdentifier
+  carePlanId String   @map("care_plan_id") @db.UniqueIdentifier
+  reviewerId String   @map("reviewer_id") @db.UniqueIdentifier
+  status     String   @db.VarChar(20) // APPROVED, REJECTED
+  notes      String?  @db.NVarChar(500)
+  reviewedAt DateTime @default(now()) @map("reviewed_at") @db.DateTimeOffset
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewer User     @relation(fields: [reviewerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("care_plan_reviews")
+}
+
+model CarePlanSignature {
+  id             String   @id @default(uuid()) @db.UniqueIdentifier
+  carePlanId     String   @map("care_plan_id") @db.UniqueIdentifier
+  signerId       String   @map("signer_id") @db.UniqueIdentifier
+  signatureToken String   @map("signature_token") @db.NVarChar(512)
+  signedAt       DateTime @default(now()) @map("signed_at") @db.DateTimeOffset
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  signer   User     @relation(fields: [signerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("care_plan_signatures")
+}
+
+model IdtAcknowledgment {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  carePlanId    String   @map("care_plan_id") @db.UniqueIdentifier
+  userId        String   @map("user_id") @db.UniqueIdentifier
+  notes         String?  @db.NVarChar(500)
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at") @db.DateTimeOffset
+
+  carePlan CarePlan @relation(fields: [carePlanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user     User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("idt_acknowledgments")
 }
 
 model Role {

@@ -5,9 +5,11 @@ import { APP_ROUTES } from "../../../constants/appRoutes";
 type CarePlanFiltersProps = {
   search: string;
   onSearchChange: (value: string) => void;
+  status: string;
+  onStatusChange: (value: string) => void;
 };
 
-export function CarePlanFilters({ search, onSearchChange }: CarePlanFiltersProps) {
+export function CarePlanFilters({ search, onSearchChange, status, onStatusChange }: CarePlanFiltersProps) {
   return (
     <div className="flex flex-col md:flex-row items-center gap-4 mb-6 w-full">
       <div className="relative flex-1 w-full">
@@ -22,22 +24,22 @@ export function CarePlanFilters({ search, onSearchChange }: CarePlanFiltersProps
 
       <div className="flex items-center gap-3 w-full md:w-auto">
         <div className="relative">
-          <select className="h-10 appearance-none rounded-md border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none hover:bg-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-            <option>Status: All</option>
+          <select 
+            value={status}
+            onChange={(e) => onStatusChange(e.target.value)}
+            className="h-10 appearance-none rounded-md border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none hover:bg-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="all">Status: All</option>
+            <option value="draft">Draft</option>
+            <option value="pending_review">Pending Review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="signed">Signed</option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 pointer-events-none" />
         </div>
 
-        <div className="relative">
-          <select className="h-10 appearance-none rounded-md border border-slate-200 bg-white pl-4 pr-10 text-sm font-medium text-slate-700 outline-none hover:bg-slate-50 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-            <option>Review: All</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 pointer-events-none" />
-        </div>
 
-        <button className="h-10 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Board
-        </button>
 
         <Link
           to={APP_ROUTES.CREATE_CARE_PLAN}

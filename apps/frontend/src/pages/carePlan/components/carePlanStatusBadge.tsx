@@ -7,12 +7,16 @@ export function CarePlanStatusBadge({ status }: { status: CarePlanStatus }) {
   const getBadgeStyle = (status: CarePlanStatus) => {
     switch (status) {
       case "needs_update":
+      case "rejected":
         return "border-red-200 bg-red-50 text-red-700";
       case "review_due":
       case "pending_review":
         return "border-yellow-200 bg-yellow-50 text-yellow-700";
       case "active":
+      case "approved":
         return "border-green-200 bg-green-50 text-green-700";
+      case "signed":
+        return "border-emerald-200 bg-emerald-50 text-emerald-700";
       case "draft":
         return "border-slate-200 bg-slate-50 text-slate-700";
       default:

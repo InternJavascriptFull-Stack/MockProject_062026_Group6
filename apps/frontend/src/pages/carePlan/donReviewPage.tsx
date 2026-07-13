@@ -1,10 +1,69 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { APP_ROUTES } from "../../constants/appRoutes";
 import { Check, Lock } from "lucide-react";
+import { session } from "../../utils/session";
 
 export function DonReviewPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [carePlan, setCarePlan] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    fetch(`http://localhost:3000/api/care-plans/${id}`, {
+      headers: { Authorization: `Bearer ${session.getAccessToken()}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) setCarePlan(data.data);
+    })
+    .catch(err => console.error("Failed to load care plan", err));
+  }, [id]);
+
+  const handleApprove = async () => {
+    if (!password) return alert("Vui lòng nhập password e-signature!");
+
+    // 1. Approve
+    await fetch(`http://localhost:3000/api/care-plans/${id}/don-review`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.getAccessToken()}`
+      },
+      body: JSON.stringify({ status: "APPROVED", notes: "Approved by DON" })
+    });
+    // 2. E-sign
+    await fetch(`http://localhost:3000/api/care-plans/${id}/esign`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.getAccessToken()}`
+      },
+      body: JSON.stringify({ signatureToken: password })
+    });
+    setIsModalOpen(false);
+    navigate(APP_ROUTES.CARE_PLANS);
+  };
+
+  const handleReject = async () => {
+    if (!rejectReason) return alert("Vui lòng nhập lý do từ chối!");
+    await fetch(`http://localhost:3000/api/care-plans/${id}/don-review`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.getAccessToken()}`
+      },
+      body: JSON.stringify({ status: "REJECTED", notes: rejectReason })
+    });
+    navigate(APP_ROUTES.CARE_PLANS);
+  };
+
+  if (!carePlan) return <div className="p-8">Đang tải dữ liệu Care Plan...</div>;
+
+  const residentName = carePlan.resident ? `${carePlan.resident.firstName} ${carePlan.resident.lastName}` : "Unknown";
 
   return (
     <div className="flex h-[calc(100vh-80px)] flex-col bg-slate-50/50">
@@ -18,18 +77,18 @@ export function DonReviewPage() {
               <span>&gt;</span>
               <span>Review</span>
               <span>&gt;</span>
-              <span>Robert Hayes</span>
+              <span>{residentName}</span>
             </div>
             <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold text-slate-900">
-                Review Care Plan — Robert Hayes
+                Review Care Plan — {residentName}
               </h1>
               <span className="rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-semibold text-yellow-700">
-                Pending Review
+                {carePlan.status}
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-500">
-              Room 204B · LOC Tier 3 · Submitted by Anna Lee, RN · 2026-07-02
+              Room 101A · LOC Tier 2 · Submitted on {new Date(carePlan.createdAt).toLocaleDateString()}
             </p>
           </div>
 
@@ -37,57 +96,52 @@ export function DonReviewPage() {
             <div className="min-w-0 space-y-6">
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="mb-4 text-lg font-bold text-slate-900">Plan Summary (read-only)</h3>
-                
+
                 <div className="mb-6">
                   <h4 className="mb-3 font-bold text-slate-900">Goals</h4>
                   <ul className="space-y-2 text-sm text-slate-700">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                      Ambulate 50 ft with walker x2/day by 2026-07-30.
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                      Maintain skin integrity through review cycle.
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                      Maintain fluid intake ≥ 1500 mL/day.
-                    </li>
+                    {carePlan.goals?.map((g: any) => (
+                      <li key={g.id} className="flex items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                        {g.description}
+                      </li>
+                    ))}
+                    {(!carePlan.goals || carePlan.goals.length === 0) && <li>No goals specified.</li>}
                   </ul>
                 </div>
 
                 <div>
                   <h4 className="mb-3 font-bold text-slate-900">Interventions</h4>
                   <ul className="space-y-2 text-sm text-slate-700">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                      Assist ambulation w/ walker 2x daily.
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                      Reposition q2h; skin checks each shift.
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                      Monitor & document fluid intake.
-                    </li>
+                    {carePlan.interventions?.map((i: any) => (
+                      <li key={i.id} className="flex items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                        {i.description}
+                      </li>
+                    ))}
+                    {(!carePlan.interventions || carePlan.interventions.length === 0) && <li>No interventions specified.</li>}
                   </ul>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="mb-4 text-lg font-bold text-slate-900">Author Accountability</h3>
-                <div className="space-y-1 text-sm text-slate-700">
-                  <p>
-                    Prepared by: <span className="font-semibold">Anna Lee, RN</span> · License #RN-482913 (CA)
-                  </p>
-                  <p>Prepared on: 2026-07-02 16:40</p>
+              {/* Author Accountability */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="mb-3 font-bold text-slate-900">Author Accountability</h3>
+                <div className="text-sm text-slate-600 space-y-1">
+                  <div>
+                    Prepared by: <span className="text-slate-900">Anna Lee, RN</span> <span className="mx-1">·</span> License #RN-482913 (CA)
+                  </div>
+                  <div>
+                    Prepared on: <span className="text-slate-900">{new Date(carePlan.createdAt).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="mb-1 text-lg font-bold text-slate-900">Rejection reason <span className="text-sm font-normal text-slate-500">(required if rejecting)</span></h3>
+                <h3 className="mb-1 text-lg font-bold text-slate-900">Rejection reason</h3>
                 <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
                   className="mt-4 w-full rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   rows={4}
                   placeholder="Add a reason to return this plan to the nurse as Draft..."
@@ -96,61 +150,56 @@ export function DonReviewPage() {
             </div>
 
             <div className="min-w-0 space-y-6">
+              {/* Compliance Checklist */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="mb-2 font-bold text-slate-900">Compliance Checklist</h3>
-                <p className="mb-4 text-sm text-slate-500">All items required to approve.</p>
-                
+                <h3 className="mb-1 font-bold text-slate-900">Compliance Checklist</h3>
+                <p className="mb-4 text-[11px] text-slate-500">All items required to approve.</p>
                 <div className="space-y-3 text-sm text-slate-700">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" checked readOnly className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" />
                     <span>Plan started within 48h (CMS §483.21)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
+                  </label>
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" checked readOnly className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" />
                     <span>Comprehensive plan within 7 days</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
+                  </label>
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" checked readOnly className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" />
                     <span>MDS 3.0 assessment linked</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-white">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
+                  </label>
+                  <label className="flex items-start gap-3">
+                    <input type="checkbox" checked readOnly className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" />
                     <span>CA Title 22 items addressed</span>
-                  </div>
+                  </label>
                 </div>
-
-                <div className="mt-4 inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                <div className="mt-4 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">
                   4 / 4 complete
                 </div>
               </div>
 
+              {/* IDT Acknowledgment */}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h3 className="mb-1 font-bold text-slate-900">IDT Acknowledgment</h3>
-                <p className="mb-4 text-[11px] text-slate-400">Auto-derived — not DON-tickable (§4A.2)</p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-700">Physician</div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">Dr. Alan Cho, MD</span>
-                      <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">Signed</span>
-                      <span className="text-[10px] text-slate-500">2026-07-02 14:10</span>
+                <p className="mb-4 text-[11px] text-slate-500">Auto-derived — not DON-tickable (§4A.2)</p>
+                <div className="space-y-4 text-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-slate-500 text-xs">Physician</div>
+                      <div className="font-bold text-slate-900">Dr. Alan Cho, MD</div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Signed</span>
+                      <span className="mt-1 text-[10px] text-slate-400">2026-07-02 14:10</span>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-slate-700">Dietary</div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">Grace Liu, RD</span>
-                      <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">Signed</span>
-                      <span className="text-[10px] text-slate-500">2026-07-02 15:30</span>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-slate-500 text-xs">Dietary</div>
+                      <div className="font-bold text-slate-900">Grace Liu, RD</div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Signed</span>
+                      <span className="mt-1 text-[10px] text-slate-400">2026-07-02 15:30</span>
                     </div>
                   </div>
                 </div>
@@ -158,13 +207,16 @@ export function DonReviewPage() {
 
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h3 className="mb-4 font-bold text-slate-900">Decision</h3>
-                <button 
+                <button
                   onClick={() => setIsModalOpen(true)}
                   className="mb-3 w-full rounded-md bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
                 >
                   Approve & e-Sign
                 </button>
-                <button className="mb-2 w-full rounded-md border border-red-500 bg-white py-2.5 text-sm font-bold text-red-600 hover:bg-red-50">
+                <button
+                  onClick={handleReject}
+                  className="mb-2 w-full rounded-md border border-red-500 bg-white py-2.5 text-sm font-bold text-red-600 hover:bg-red-50"
+                >
                   Reject & Return
                 </button>
                 <p className="text-center text-[11px] text-slate-400">
@@ -185,51 +237,30 @@ export function DonReviewPage() {
               Approving activates this care plan and generates downstream tasks & billing.
             </p>
 
-            <div className="mb-6 flex items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white font-bold text-slate-600">
-                D
-              </div>
-              <div>
-                <p className="font-bold text-slate-900">Denise Carter, DON</p>
-                <p className="text-xs text-slate-500">Signing as Director of Nursing</p>
-              </div>
-            </div>
-
             <div className="mb-4">
               <label className="mb-2 block text-sm font-bold text-slate-700">Re-enter password to sign</label>
               <div className="relative">
                 <input
                   type="password"
-                  value="..........."
-                  readOnly
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-md border border-slate-200 p-2.5 text-lg tracking-widest outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 <Lock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               </div>
             </div>
 
-            <div className="mb-6 flex items-start gap-2">
-              <div className="mt-0.5 flex h-4 w-4 items-center justify-center rounded bg-blue-600">
-                <Check className="h-3 w-3 text-white" />
-              </div>
-              <p className="text-sm text-slate-700">
-                I attest this plan is compliant and ready for activation.
-              </p>
-            </div>
-
-            <div className="mb-8 space-y-1 text-xs text-slate-500">
-              <p>Signature timestamp: 2026-07-02 17:02 PDT</p>
-              <p>Recorded immutably in audit log.</p>
-            </div>
-
-            <div className="flex gap-3">
-              <button 
+            <div className="flex gap-3 mt-8">
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="flex-1 rounded-md border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
-              <button className="flex-1 rounded-md bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+              <button
+                onClick={handleApprove}
+                className="flex-1 rounded-md bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+              >
                 Sign & Approve
               </button>
             </div>

@@ -1,4 +1,4 @@
-export type CarePlanStatus = "draft" | "active" | "pending_review" | "review_due" | "needs_update";
+export type CarePlanStatus = "draft" | "active" | "pending_review" | "review_due" | "needs_update" | "approved" | "signed" | "rejected";
 
 export type CarePlan = {
   id: string;
@@ -9,6 +9,7 @@ export type CarePlan = {
   lastReview: string | null;
   nextReview: string | null;
   assigned: string;
+  createdAt: string;
 };
 
 export type CarePlanListQuery = {
