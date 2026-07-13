@@ -148,9 +148,13 @@ export function Login() {
         Accounts are provisioned by your administrator.
         <br />
         Need access?{" "}
-        <a href="#" className="text-blue-600 hover:underline font-bold">
+        <button
+          type="button"
+          onClick={() => navigate("/activate")}
+          className="text-blue-600 hover:underline font-bold cursor-pointer"
+        >
           Contact your NHMS admin.
-        </a>
+        </button>
       </div>
     </AuthLayout>
   );
