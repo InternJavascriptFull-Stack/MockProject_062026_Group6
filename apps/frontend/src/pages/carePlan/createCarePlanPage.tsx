@@ -94,7 +94,7 @@ export function CreateCarePlanPage() {
 
   const locRate = 150 + careAreas.length * 20;
   const roomRate = 185;
-  const tier = careAreas.length > 3 ? "Tier 3" : "Tier 2";
+  const tier = careAreas.length > 3 ? "Tier 3" : careAreas.length > 1 ? "Tier 2" : "Tier 1";
 
   // Toggle this to test SC_028 vs SC_027
   const isLocConfirmed = true;
