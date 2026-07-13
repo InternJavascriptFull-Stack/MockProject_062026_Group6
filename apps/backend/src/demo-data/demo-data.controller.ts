@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards, Req, ForbiddenException } from "@nestjs/common";
+import { Controller, Get, Post, Param, UseGuards, Req, ForbiddenException, BadRequestException } from "@nestjs/common";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard.js";
 import { DemoDataService } from "./demo-data.service.js";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
@@ -12,7 +12,8 @@ export class DemoDataController {
 
   @Get("status")
   @ApiOperation({ summary: "Get status of demo data" })
-  getStatus() {
+  getStatus(@Req() req: any) {
+    this.checkAdmin(req);
     return this.demoDataService.getStatus();
   }
 
@@ -35,6 +36,7 @@ export class DemoDataController {
   @ApiOperation({ summary: "Load specific dataset" })
   loadDataset(@Param("dataset") dataset: string, @Req() req: any) {
     this.checkAdmin(req);
+    this.validateDataset(dataset);
     const userId = req.user.sub;
     return this.demoDataService.loadDataset(dataset, userId);
   }
@@ -43,7 +45,15 @@ export class DemoDataController {
   @ApiOperation({ summary: "Clear specific dataset" })
   clearDataset(@Param("dataset") dataset: string, @Req() req: any) {
     this.checkAdmin(req);
+    this.validateDataset(dataset);
     return this.demoDataService.clearDataset(dataset);
+  }
+
+  private validateDataset(dataset: string) {
+    const valid = ["residents", "care-plans", "incidents", "medications"];
+    if (!valid.includes(dataset)) {
+      throw new BadRequestException(`Dataset '${dataset}' is invalid. Allowed: ${valid.join(", ")}`);
+    }
   }
 
   private checkAdmin(req: any) {

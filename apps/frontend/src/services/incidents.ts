@@ -11,6 +11,12 @@ const getHeaders = () => {
 };
 
 export const incidentsService = {
+  async getIncidents() {
+    const res = await fetch(BASE_URL, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch incidents list");
+    return res.json();
+  },
+
   async getIncidentById(id: string) {
     const res = await fetch(`${BASE_URL}/${id}`, { headers: getHeaders() });
     if (!res.ok) throw new Error("Failed to fetch incident details");

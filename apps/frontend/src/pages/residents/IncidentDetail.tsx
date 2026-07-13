@@ -64,10 +64,16 @@ export default function IncidentDetail() {
     setShowLockModal(false);
 
     try {
-      await incidentsService.lockChart(id, lockReason);
-      setSuccessMsg("Chart locked successfully");
+      const response = await incidentsService.lockChart(id, lockReason);
       setLockReason("");
-      await loadData();
+      navigate(`/incidents/${id}/lock-confirm`, {
+        state: {
+          residentName: inc.resident?.fullName,
+          lockedAt: response.data?.lockedAt || new Date().toISOString(),
+          incidentId: id,
+          residentId: inc.resident?.id
+        }
+      });
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to lock chart");
       setIsLoading(false);
@@ -325,15 +331,16 @@ export default function IncidentDetail() {
               </Button>
 
               {isLocked ? (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowUnlockModal(true)}
-                  disabled={!isDonOrAdmin}
-                  className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-bold"
-                >
-                  <Unlock className="w-4 h-4 mr-1.5" />
-                  Unlock Chart
-                </Button>
+                isDonOrAdmin && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowUnlockModal(true)}
+                    className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-bold"
+                  >
+                    <Unlock className="w-4 h-4 mr-1.5" />
+                    Unlock Chart
+                  </Button>
+                )
               ) : (
                 <Button
                   variant="outline"

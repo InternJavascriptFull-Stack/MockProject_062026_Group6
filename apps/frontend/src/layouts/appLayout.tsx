@@ -41,7 +41,7 @@ const navigationItems = [
     },
     {
         label: "Incident & Risk",
-        to: "/incidents/INC-2044",
+        to: "/incidents",
         icon: ShieldAlert,
         end: false,
     },

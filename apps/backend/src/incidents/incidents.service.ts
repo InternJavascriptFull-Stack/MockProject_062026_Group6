@@ -6,6 +6,34 @@ import bcrypt from "bcrypt";
 export class IncidentsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findAll() {
+    const list = await this.prisma.incidents.findMany({
+      include: {
+        residents: true,
+        users: true,
+        incident_severities: true
+      },
+      orderBy: { reported_at: "desc" }
+    });
+    return list.map(incident => ({
+      id: incident.id,
+      incidentType: incident.incident_type,
+      status: incident.status,
+      description: incident.description,
+      reportedAt: incident.reported_at.toISOString(),
+      resident: {
+        id: incident.residents.id,
+        fullName: [incident.residents.first_name, incident.residents.middle_name, incident.residents.last_name].filter(Boolean).join(" "),
+        isChartLocked: incident.residents.is_chart_locked
+      },
+      reporter: {
+        id: incident.users.id,
+        name: `${incident.users.firstName} ${incident.users.lastName}`
+      },
+      severity: incident.incident_severities.level_name
+    }));
+  }
+
   async findOne(id: string) {
     const incident = await this.prisma.incidents.findUnique({
       where: { id },
@@ -68,6 +96,17 @@ export class IncidentsService {
           locked_by_system: false,
           locked_by: userId,
           lock_reason: reason || "Incident under investigation"
+        }
+      });
+
+      // 3. Create Audit Log Entry
+      await tx.audit_logs.create({
+        data: {
+          table_name: "residents",
+          record_id: incident.resident_id,
+          action: "LOCK",
+          performed_by: userId,
+          new_data: JSON.stringify({ is_chart_locked: true, reason: reason || "Incident under investigation" })
         }
       });
     });
@@ -148,6 +187,17 @@ export class IncidentsService {
           }
         });
       }
+
+      // 3. Create Audit Log Entry
+      await tx.audit_logs.create({
+        data: {
+          table_name: "residents",
+          record_id: incident.resident_id,
+          action: "UNLOCK",
+          performed_by: userId,
+          new_data: JSON.stringify({ is_chart_locked: false, reason })
+        }
+      });
     });
 
     return {

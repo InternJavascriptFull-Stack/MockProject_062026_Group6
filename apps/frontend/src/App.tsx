@@ -12,6 +12,8 @@ import RoleMatrix from "./pages/roles/RoleMatrix";
 import DashboardRouter from "./pages/dashboard/DashboardRouter";
 import DemoSeeder from "./pages/admin/DemoSeeder";
 import IncidentDetail from "./pages/residents/IncidentDetail";
+import IncidentList from "./pages/residents/IncidentList";
+import ChartLockConfirmation from "./pages/residents/ChartLockConfirmation";
 import { DoctorsSchedulePage } from "./pages/schedule/doctorsSchedulePage";
 import { EmarPage } from "./pages/emar/emarPage";
 import { CarePlanPage } from "./pages/carePlan/carePlanPage";
@@ -125,7 +127,9 @@ function App() {
                 <Route path="/care-plans/:id" element={<CarePlanPage />} />
                 <Route path="/care-plans/:id/review" element={<DonReviewPage />} />
                 <Route path="/care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />
+                <Route path="/incidents" element={<IncidentList />} />
                 <Route path="/incidents/:id" element={<IncidentDetail />} />
+                <Route path="/incidents/:id/lock-confirm" element={<ChartLockConfirmation />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />

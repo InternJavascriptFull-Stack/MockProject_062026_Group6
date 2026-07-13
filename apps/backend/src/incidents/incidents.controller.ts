@@ -10,6 +10,12 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 export class IncidentsController {
   constructor(private readonly incidentsService: IncidentsService) {}
 
+  @Get()
+  @ApiOperation({ summary: "Get all incidents" })
+  findAll() {
+    return this.incidentsService.findAll();
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "Get incident by ID" })
   findOne(@Param("id") id: string) {
