@@ -8,7 +8,7 @@ interface ScheduleBlockProps {
 }
 
 export const ScheduleBlock = ({ schedule }: ScheduleBlockProps) => {
-  const isTeal = schedule.colorVariant === "green" || schedule.colorVariant === "teal";
+  const isTeal = schedule.colorVariant === "teal";
 
   return (
     <div

@@ -8,25 +8,40 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid()) @db.UniqueIdentifier
-  employeeCode  String    @unique @map("employee_code") @db.NVarChar(50)
-  email         String    @unique @db.NVarChar(255)
-  passwordHash  String    @map("password_hash") @db.NVarChar(300)
-  firstName     String    @map("first_name") @db.NVarChar(100)
-  middleName    String?   @map("middle_name") @db.NVarChar(100)
-  lastName      String    @map("last_name") @db.NVarChar(100)
-  licenseNumber String?   @map("license_number") @db.NVarChar(100)
-  phoneNumber   String?   @map("phone_number") @db.NVarChar(20)
-  status        String    @default("INACTIVE") @db.VarChar(20)
-  mfaEnabled    Boolean   @default(false) @map("mfa_enabled")
-  lastLoginAt   DateTime? @map("last_login_at") @db.DateTimeOffset
-  roleId        BigInt    @map("role_id")
-  role          Role      @relation(fields: [roleId], references: [id])
-  isDeleted     Boolean   @default(false) @map("is_deleted")
-  deletedAt     DateTime? @map("deleted_at") @db.DateTimeOffset
-  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTimeOffset
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.DateTimeOffset
-  facilities    UserFacility[]
+  id                                                     String                     @id(map: "PK__users__3213E83F18FDDDBB") @default(dbgenerated("newid()"), map: "DF__users__id__5070F446") @db.UniqueIdentifier
+  roleId                                                 BigInt                     @map("role_id")
+  employeeCode                                           String                     @unique(map: "UQ__users__B0AA73452D3D507A") @map("employee_code") @db.NVarChar(50)
+  email                                                  String                     @unique(map: "UQ__users__AB6E61647E32C10B") @db.NVarChar(255)
+  passwordHash                                           String                     @map("password_hash") @db.NVarChar(300)
+  firstName                                              String                     @map("first_name") @db.NVarChar(100)
+  middleName                                             String?                    @map("middle_name") @db.NVarChar(100)
+  lastName                                               String                     @map("last_name") @db.NVarChar(100)
+  licenseNumber                                          String?                    @map("license_number") @db.NVarChar(100)
+  phoneNumber                                            String?                    @map("phone_number") @db.NVarChar(20)
+  status                                                 String                     @default("ACTIVE", map: "DF__users__status__52593CB8") @db.VarChar(20)
+  mfaEnabled                                             Boolean                    @default(false, map: "DF__users__mfa_enabl__5441852A") @map("mfa_enabled")
+  lastLoginAt                                            DateTime?                  @map("last_login_at") @db.DateTimeOffset
+  isDeleted                                              Boolean                    @default(false, map: "DF__users__is_delete__5535A963") @map("is_deleted")
+  deletedAt                                              DateTime?                  @map("deleted_at") @db.DateTimeOffset
+  createdAt                                              DateTime                   @default(dbgenerated("sysdatetimeoffset()"), map: "DF__users__created_a__5629CD9C") @map("created_at") @db.DateTimeOffset
+  updatedAt                                              DateTime                   @default(dbgenerated("sysdatetimeoffset()"), map: "DF__users__updated_a__571DF1D5") @updatedAt @map("updated_at") @db.DateTimeOffset
+  assessments                                            assessments[]
+  audit_logs                                             audit_logs[]
+  care_tasks                                             care_tasks[]
+  chart_lock_events                                      chart_lock_events[]
+  clinical_records                                       clinical_records[]
+  incidents                                              incidents[]
+  medication_logs_medication_logs_administered_byTousers medication_logs[]          @relation("medication_logs_administered_byTousers")
+  medication_logs_medication_logs_witnessed_byTousers    medication_logs[]          @relation("medication_logs_witnessed_byTousers")
+  medication_orders                                      medication_orders[]
+  notifications                                          notifications[]
+  payments                                               payments[]
+  phi_access_logs                                        phi_access_logs[]
+  pre_admission_screenings                               pre_admission_screenings[]
+  shift_assignments                                      shift_assignments[]
+  facilities                                             UserFacility[]
+  role                                                   Role                       @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "FK__users__role_id__5165187F")
+  vital_signs                                            vital_signs[]
 
   // --- Care Plan Relations ---
   createdCarePlans CarePlan[] @relation("CarePlanCreator")
@@ -35,6 +50,7 @@ model User {
   carePlanSigns    CarePlanSignature[]
   idtAcks          IdtAcknowledgment[]
 
+  @@index([roleId], map: "idx_users_role_id")
   @@map("users")
 }
 
@@ -159,61 +175,622 @@ model IdtAcknowledgment {
 }
 
 model Role {
-  id          BigInt   @id @default(autoincrement()) @db.BigInt
-  roleName    String   @unique @map("role_name") @db.NVarChar(100)
-  description String?  @map("description") @db.NVarChar(255)
-  createdAt   DateTime @default(now()) @map("created_at") @db.DateTimeOffset
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
-  users       User[]
+  id          BigInt           @id(map: "PK__roles__3213E83FA3F8F2E3") @default(autoincrement())
+  roleName    String           @unique(map: "UQ__roles__783254B12D21ECDD") @map("role_name") @db.NVarChar(100)
+  description String?          @map("description") @db.NVarChar(500)
+  is_deleted  Boolean          @default(false, map: "DF__roles__is_delete__38996AB5")
+  createdAt   DateTime         @default(dbgenerated("sysdatetimeoffset()"), map: "DF__roles__created_a__398D8EEE") @map("created_at") @db.DateTimeOffset
+  updatedAt   DateTime         @default(dbgenerated("sysdatetimeoffset()"), map: "DF__roles__updated_a__3A81B327") @updatedAt @map("updated_at") @db.DateTimeOffset
   permissions RolePermission[]
+  users       User[]
 
   @@map("roles")
 }
 
 model Permission {
-  id             BigInt           @id @default(autoincrement()) @db.BigInt
-  actionCode     String           @unique @map("action_code") @db.NVarChar(100)
-  isPhiSensitive Boolean          @default(false) @map("is_phi_sensitive")
-  createdAt      DateTime         @default(now()) @map("created_at") @db.DateTimeOffset
+  id             BigInt           @id(map: "PK__permissi__3213E83FA58D789E") @default(autoincrement())
+  actionCode     String           @unique(map: "UQ__permissi__BFFF1CB8B07F31E5") @map("action_code") @db.NVarChar(100)
+  isPhiSensitive Boolean          @default(false, map: "DF__permissio__is_ph__3E52440B") @map("is_phi_sensitive")
+  createdAt      DateTime         @default(dbgenerated("sysdatetimeoffset()"), map: "DF__permissio__creat__3F466844") @map("created_at") @db.DateTimeOffset
   roles          RolePermission[]
 
   @@map("permissions")
 }
 
 model RolePermission {
-  roleId       BigInt     @map("role_id") @db.BigInt
-  permissionId BigInt     @map("permission_id") @db.BigInt
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  roleId       BigInt     @map("role_id")
+  permissionId BigInt     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onUpdate: NoAction, map: "FK__role_perm__permi__4316F928")
+  role         Role       @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "FK__role_perm__role___4222D4EF")
 
-  @@id([roleId, permissionId])
+  @@id([roleId, permissionId], map: "PK__role_per__C85A5463E661B909")
   @@map("role_permissions")
 }
 
 model Facility {
-  id            String   @id @default(uuid()) @db.UniqueIdentifier
-  addressId     BigInt?  @map("address_id")
-  facilityCode  String   @unique @map("facility_code") @db.NVarChar(50)
-  name          String   @db.NVarChar(200)
-  licenseNumber String   @map("license_number") @db.NVarChar(100)
-  targetState   String   @map("target_state") @db.Char(2)
-  phoneNumber   String?  @map("phone_number") @db.NVarChar(20)
-  isDeleted     Boolean  @default(false) @map("is_deleted")
-  createdAt     DateTime @default(now()) @map("created_at") @db.DateTimeOffset
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
-  users         UserFacility[]
+  id               String             @id(map: "PK__faciliti__3213E83FA56D8042") @default(dbgenerated("newid()"), map: "DF__facilities__id__5AEE82B9") @db.UniqueIdentifier
+  addressId        BigInt?            @map("address_id")
+  facilityCode     String             @unique(map: "UQ__faciliti__EC22450ACDDC1848") @map("facility_code") @db.NVarChar(50)
+  name             String             @db.NVarChar(200)
+  licenseNumber    String             @map("license_number") @db.NVarChar(100)
+  targetState      String             @map("target_state") @db.Char(2)
+  phoneNumber      String?            @map("phone_number") @db.NVarChar(20)
+  isDeleted        Boolean            @default(false, map: "DF__facilitie__is_de__5CD6CB2B") @map("is_deleted")
+  createdAt        DateTime           @default(dbgenerated("sysdatetimeoffset()"), map: "DF__facilitie__creat__5DCAEF64") @map("created_at") @db.DateTimeOffset
+  updatedAt        DateTime           @default(dbgenerated("sysdatetimeoffset()"), map: "DF__facilitie__updat__5EBF139D") @updatedAt @map("updated_at") @db.DateTimeOffset
+  admissions       admissions[]
+  care_level_rates care_level_rates[]
+  addresses        addresses?         @relation(fields: [addressId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__facilitie__addre__5BE2A6F2")
+  rooms            rooms[]
+  shifts           shifts[]
+  staffing_configs staffing_configs[]
+  users            UserFacility[]
 
   @@map("facilities")
 }
 
 model UserFacility {
-  userId      String   @map("user_id") @db.UniqueIdentifier
-  facilityId  String   @map("facility_id") @db.UniqueIdentifier
-  isPrimary   Boolean  @default(false) @map("is_primary")
-  
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  userId     String   @map("user_id") @db.UniqueIdentifier
+  facilityId String   @map("facility_id") @db.UniqueIdentifier
+  isPrimary  Boolean  @default(false, map: "DF__user_faci__is_pr__7C4F7684") @map("is_primary")
+  facility   Facility @relation(fields: [facilityId], references: [id], onUpdate: NoAction, map: "FK__user_faci__facil__7B5B524B")
+  user       User     @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "FK__user_faci__user___7A672E12")
 
-  @@id([userId, facilityId])
+  @@id([userId, facilityId], map: "PK__user_fac__4290B9A5333EFA5D")
   @@map("user_facilities")
+}
+
+model addresses {
+  id           BigInt      @id(map: "PK__addresse__3213E83FC1C90FD0") @default(autoincrement())
+  street_line1 String      @db.NVarChar(200)
+  street_line2 String?     @db.NVarChar(200)
+  city         String      @db.NVarChar(100)
+  state        String      @db.Char(2)
+  zip_code     String      @db.VarChar(10)
+  address_type String      @default("HOME", map: "DF__addresses__addre__47DBAE45") @db.VarChar(20)
+  is_deleted   Boolean     @default(false, map: "DF__addresses__is_de__49C3F6B7")
+  created_at   DateTime    @default(dbgenerated("sysdatetimeoffset()"), map: "DF__addresses__creat__4AB81AF0") @db.DateTimeOffset
+  updated_at   DateTime    @default(dbgenerated("sysdatetimeoffset()"), map: "DF__addresses__updat__4BAC3F29") @db.DateTimeOffset
+  contacts     contacts[]
+  facilities   Facility[]
+  residents    residents[]
+}
+
+model admissions {
+  id               String    @id(map: "PK__admissio__3213E83FE974B1C3") @default(dbgenerated("newid()"), map: "DF__admissions__id__2CF2ADDF") @db.UniqueIdentifier
+  resident_id      String    @db.UniqueIdentifier
+  facility_id      String    @db.UniqueIdentifier
+  admission_date   DateTime  @db.Date
+  discharge_date   DateTime? @db.Date
+  discharge_reason String?   @db.NVarChar(255)
+  created_at       DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__admission__creat__2FCF1A8A") @db.DateTimeOffset
+  facilities       Facility  @relation(fields: [facility_id], references: [id], onUpdate: NoAction, map: "FK__admission__facil__2EDAF651")
+  residents        residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__admission__resid__2DE6D218")
+
+  @@index([resident_id], map: "idx_admissions_resident_id")
+}
+
+model assessment_details {
+  id                 String             @id(map: "PK__assessme__3213E83FD3DEFF07") @default(dbgenerated("newid()"), map: "DF__assessment_d__id__46B27FE2") @db.UniqueIdentifier
+  assessment_id      String             @db.UniqueIdentifier
+  metric_id          BigInt
+  score              Int
+  notes              String?            @db.NVarChar(500)
+  assessments        assessments        @relation(fields: [assessment_id], references: [id], onUpdate: NoAction, map: "FK__assessmen__asses__47A6A41B")
+  assessment_metrics assessment_metrics @relation(fields: [metric_id], references: [id], onUpdate: NoAction, map: "FK__assessmen__metri__489AC854")
+
+  @@index([assessment_id], map: "idx_assessment_details_assessment_id")
+}
+
+model assessment_metrics {
+  id                 BigInt               @id(map: "PK__assessme__3213E83F24B4B4C3") @default(autoincrement())
+  category           String               @db.VarChar(50)
+  metric_name        String               @db.NVarChar(100)
+  assessment_details assessment_details[]
+}
+
+model assessments {
+  id                                                           String               @id(map: "PK__assessme__3213E83F4BBE0B5A") @default(dbgenerated("newid()"), map: "DF__assessments__id__3B40CD36") @db.UniqueIdentifier
+  suggested_care_level_id                                      BigInt
+  confirmed_care_level_id                                      BigInt
+  resident_id                                                  String               @db.UniqueIdentifier
+  assessed_by                                                  String               @db.UniqueIdentifier
+  adl_total_score                                              Int
+  is_overridden                                                Boolean              @default(false, map: "DF__assessmen__is_ov__40058253")
+  created_at                                                   DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__assessmen__creat__40F9A68C") @db.DateTimeOffset
+  assessment_details                                           assessment_details[]
+  users                                                        User                 @relation(fields: [assessed_by], references: [id], onUpdate: NoAction, map: "FK__assessmen__asses__3F115E1A")
+  care_levels_assessments_confirmed_care_level_idTocare_levels care_levels          @relation("assessments_confirmed_care_level_idTocare_levels", fields: [confirmed_care_level_id], references: [id], onUpdate: NoAction, map: "FK__assessmen__confi__3D2915A8")
+  residents                                                    residents            @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__assessmen__resid__3E1D39E1")
+  care_levels_assessments_suggested_care_level_idTocare_levels care_levels          @relation("assessments_suggested_care_level_idTocare_levels", fields: [suggested_care_level_id], references: [id], onUpdate: NoAction, map: "FK__assessmen__sugge__3C34F16F")
+
+  @@index([resident_id], map: "idx_assessments_resident_id")
+}
+
+model audit_logs {
+  id           BigInt   @id(map: "PK__audit_lo__3213E83FB10528CF") @default(autoincrement())
+  table_name   String   @db.NVarChar(100)
+  record_id    String   @db.NVarChar(100)
+  action       String   @db.VarChar(20)
+  old_data     String?  @db.NVarChar(Max)
+  new_data     String?  @db.NVarChar(Max)
+  performed_by String   @db.UniqueIdentifier
+  performed_at DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__audit_log__perfo__44952D46") @db.DateTimeOffset
+  ip_address   String?  @db.VarChar(45)
+  users        User     @relation(fields: [performed_by], references: [id], onUpdate: NoAction, map: "FK__audit_log__perfo__43A1090D")
+
+  @@index([performed_by], map: "idx_audit_logs_performed_by")
+  @@index([table_name, record_id], map: "idx_audit_logs_table_record")
+}
+
+model beds {
+  id         String      @id(map: "PK__beds__3213E83F51E92940") @default(dbgenerated("newid()"), map: "DF__beds__id__68487DD7") @db.UniqueIdentifier
+  room_id    String      @db.UniqueIdentifier
+  bed_number String      @db.NVarChar(20)
+  status     String      @default("AVAILABLE", map: "DF__beds__status__6A30C649") @db.VarChar(20)
+  rooms      rooms       @relation(fields: [room_id], references: [id], onUpdate: NoAction, map: "FK__beds__room_id__693CA210")
+  residents  residents[]
+
+  @@unique([room_id, bed_number], map: "uq_bed_per_room")
+  @@index([room_id], map: "idx_beds_room_id")
+  @@index([status], map: "idx_beds_status")
+}
+
+model care_goals {
+  id           String     @id(map: "PK__care_goa__3213E83F55991026") @default(dbgenerated("newid()"), map: "DF__care_goals__id__5AB9788F") @db.UniqueIdentifier
+  care_plan_id String     @db.UniqueIdentifier
+  status       String     @db.VarChar(20)
+  care_plans   care_plans @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction, map: "FK__care_goal__care___5BAD9CC8")
+
+  @@index([care_plan_id], map: "idx_care_goals_care_plan_id")
+}
+
+model care_interventions {
+  id            String       @id(map: "PK__care_int__3213E83FFA61C737") @default(dbgenerated("newid()"), map: "DF__care_interve__id__5F7E2DAC") @db.UniqueIdentifier
+  assigned_role String       @db.VarChar(50)
+  care_plan_id  String       @db.UniqueIdentifier
+  care_plans    care_plans   @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction, map: "FK__care_inte__care___607251E5")
+  care_tasks    care_tasks[]
+
+  @@index([care_plan_id], map: "idx_care_interventions_care_plan_id")
+}
+
+model care_level_rates {
+  id             BigInt      @id(map: "PK__care_lev__3213E83F0E6F3534") @default(autoincrement())
+  care_level_id  BigInt
+  facility_id    String      @db.UniqueIdentifier
+  daily_rate     Decimal     @db.Decimal(18, 2)
+  effective_from DateTime    @db.Date
+  effective_to   DateTime?   @db.Date
+  care_levels    care_levels @relation(fields: [care_level_id], references: [id], onUpdate: NoAction, map: "FK__care_leve__care___76969D2E")
+  facilities     Facility    @relation(fields: [facility_id], references: [id], onUpdate: NoAction, map: "FK__care_leve__facil__778AC167")
+
+  @@index([care_level_id, facility_id, effective_from], map: "idx_care_level_rates_lookup")
+}
+
+model care_levels {
+  id                                                           BigInt                        @id(map: "PK__care_lev__3213E83F507A2A99") @default(autoincrement())
+  level_code                                                   String                        @unique(map: "UQ__care_lev__9AEFB29466711675") @db.VarChar(30)
+  level_name                                                   String                        @db.NVarChar(100)
+  is_deleted                                                   Boolean                       @default(false, map: "DF__care_leve__is_de__73BA3083")
+  assessments_assessments_confirmed_care_level_idTocare_levels assessments[]                 @relation("assessments_confirmed_care_level_idTocare_levels")
+  assessments_assessments_suggested_care_level_idTocare_levels assessments[]                 @relation("assessments_suggested_care_level_idTocare_levels")
+  care_level_rates                                             care_level_rates[]
+  resident_care_level_history                                  resident_care_level_history[]
+}
+
+model care_plans {
+  id                      String               @id(map: "PK__care_pla__3213E83FA4350B3D") @default(dbgenerated("newid()"), map: "DF__care_plans__id__5224328E") @db.UniqueIdentifier
+  resident_id             String               @db.UniqueIdentifier
+  status                  String               @db.VarChar(20)
+  significant_change_flag Boolean              @default(false, map: "DF__care_plan__signi__55009F39")
+  is_deleted              Boolean              @default(false, map: "DF__care_plan__is_de__55F4C372")
+  created_at              DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__care_plan__creat__56E8E7AB") @db.DateTimeOffset
+  updated_at              DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__care_plan__updat__57DD0BE4") @db.DateTimeOffset
+  care_goals              care_goals[]
+  care_interventions      care_interventions[]
+  residents               residents            @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__care_plan__resid__531856C7")
+
+  @@index([resident_id], map: "idx_care_plans_resident_id")
+}
+
+model care_tasks {
+  id                   String             @id(map: "PK__care_tas__3213E83F2430EE42") @default(dbgenerated("newid()"), map: "DF__care_tasks__id__634EBE90") @db.UniqueIdentifier
+  task_type            String             @db.VarChar(50)
+  status               String             @default("PENDING", map: "DF__care_task__statu__6442E2C9") @db.VarChar(20)
+  is_abnormal_flagged  Boolean            @default(false, map: "DF__care_task__is_ab__662B2B3B")
+  care_intervention_id String             @db.UniqueIdentifier
+  assigned_cna_id      String?            @db.UniqueIdentifier
+  scheduled_time       DateTime           @db.DateTimeOffset
+  completed_at         DateTime?          @db.DateTimeOffset
+  users                User?              @relation(fields: [assigned_cna_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__care_task__assig__681373AD")
+  care_interventions   care_interventions @relation(fields: [care_intervention_id], references: [id], onUpdate: NoAction, map: "FK__care_task__care___671F4F74")
+
+  @@index([assigned_cna_id], map: "idx_care_tasks_assigned_cna_id")
+  @@index([care_intervention_id], map: "idx_care_tasks_intervention_id")
+}
+
+model chart_lock_events {
+  id               String    @id(map: "PK__chart_lo__3213E83FAFEFD853") @default(dbgenerated("newid()"), map: "DF__chart_lock_e__id__3BFFE745") @db.UniqueIdentifier
+  locked_by_system Boolean   @default(true, map: "DF__chart_loc__locke__3CF40B7E")
+  unlock_reason    String?   @db.NVarChar(Max)
+  incident_id      String    @db.UniqueIdentifier
+  unlocked_by      String?   @db.UniqueIdentifier
+  event_time       DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__chart_loc__event__3FD07829") @db.DateTimeOffset
+  incidents        incidents @relation(fields: [incident_id], references: [id], onUpdate: NoAction, map: "FK__chart_loc__incid__3DE82FB7")
+  users            User?     @relation(fields: [unlocked_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__chart_loc__unloc__3EDC53F0")
+
+  @@index([incident_id], map: "idx_chart_lock_events_incident_id")
+}
+
+model clinical_records {
+  id          String    @id(map: "PK__clinical__3213E83FA45F2ADB") @default(dbgenerated("newid()"), map: "DF__clinical_rec__id__32AB8735") @db.UniqueIdentifier
+  resident_id String    @db.UniqueIdentifier
+  recorded_by String    @db.UniqueIdentifier
+  record_type String    @db.VarChar(50)
+  description String    @db.NVarChar(Max)
+  is_deleted  Boolean   @default(false, map: "DF__clinical___is_de__367C1819")
+  created_at  DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__clinical___creat__37703C52") @db.DateTimeOffset
+  updated_at  DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__clinical___updat__3864608B") @db.DateTimeOffset
+  users       User      @relation(fields: [recorded_by], references: [id], onUpdate: NoAction, map: "FK__clinical___recor__3493CFA7")
+  residents   residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__clinical___resid__339FAB6E")
+
+  @@index([resident_id], map: "idx_clinical_records_resident_id")
+}
+
+model contacts {
+  id                String              @id(map: "PK__contacts__3213E83F1810E69D") @default(dbgenerated("newid()"), map: "DF__contacts__id__7F2BE32F") @db.UniqueIdentifier
+  address_id        BigInt?
+  first_name        String              @db.NVarChar(100)
+  middle_name       String?             @db.NVarChar(100)
+  last_name         String              @db.NVarChar(100)
+  phone_primary     String              @db.NVarChar(20)
+  phone_secondary   String?             @db.NVarChar(20)
+  email             String?             @db.NVarChar(255)
+  is_deleted        Boolean             @default(false, map: "DF__contacts__is_del__01142BA1")
+  created_at        DateTime            @default(dbgenerated("sysdatetimeoffset()"), map: "DF__contacts__create__02084FDA") @db.DateTimeOffset
+  updated_at        DateTime            @default(dbgenerated("sysdatetimeoffset()"), map: "DF__contacts__update__02FC7413") @db.DateTimeOffset
+  addresses         addresses?          @relation(fields: [address_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__contacts__addres__00200768")
+  resident_contacts resident_contacts[]
+}
+
+model incident_severities {
+  id                 BigInt        @id(map: "PK__incident__3213E83F9833F0D0") @default(autoincrement())
+  level_name         String        @db.NVarChar(50)
+  chart_lock_trigger Boolean       @default(false, map: "DF__incident___chart__2CBDA3B5")
+  incidents          incidents[]
+  sla_configs        sla_configs[]
+}
+
+model incidents {
+  id                  String              @id(map: "PK__incident__3213E83FC8F5F3DC") @default(dbgenerated("newid()"), map: "DF__incidents__id__32767D0B") @db.UniqueIdentifier
+  incident_type       String              @db.VarChar(50)
+  status              String              @default("OPEN", map: "DF__incidents__statu__345EC57D") @db.VarChar(20)
+  description         String?             @db.NVarChar(Max)
+  sla_deadline        DateTime            @db.DateTimeOffset
+  resident_id         String              @db.UniqueIdentifier
+  severity_id         BigInt
+  reported_by         String              @db.UniqueIdentifier
+  reported_at         DateTime            @default(dbgenerated("sysdatetimeoffset()"), map: "DF__incidents__repor__39237A9A") @db.DateTimeOffset
+  chart_lock_events   chart_lock_events[]
+  users               User                @relation(fields: [reported_by], references: [id], onUpdate: NoAction, map: "FK__incidents__repor__382F5661")
+  residents           residents           @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__incidents__resid__36470DEF")
+  incident_severities incident_severities @relation(fields: [severity_id], references: [id], onUpdate: NoAction, map: "FK__incidents__sever__373B3228")
+
+  @@index([resident_id], map: "idx_incidents_resident_id")
+}
+
+model insurance_providers {
+  id                          BigInt                        @id(map: "PK__insuranc__3213E83F4984C860") @default(autoincrement())
+  provider_name               String                        @db.NVarChar(200)
+  provider_type               String                        @db.VarChar(20)
+  resident_insurance_policies resident_insurance_policies[]
+}
+
+model invoice_line_items {
+  id          BigInt   @id(map: "PK__invoice___3213E83FD57F6143") @default(autoincrement())
+  invoice_id  String   @db.UniqueIdentifier
+  description String   @db.NVarChar(255)
+  item_type   String   @db.VarChar(30)
+  amount      Decimal  @db.Decimal(18, 2)
+  invoices    invoices @relation(fields: [invoice_id], references: [id], onUpdate: NoAction, map: "FK__invoice_l__invoi__214BF109")
+
+  @@index([invoice_id], map: "idx_invoice_line_items_invoice_id")
+}
+
+model invoices {
+  id                               String               @id(map: "PK__invoices__3213E83FD1AD39E2") @default(dbgenerated("newid()"), map: "DF__invoices__id__14E61A24") @db.UniqueIdentifier
+  resident_id                      String               @db.UniqueIdentifier
+  billing_period_start             DateTime             @db.Date
+  billing_period_end               DateTime             @db.Date
+  total_amount                     Decimal              @db.Decimal(18, 2)
+  medicare_covered_amount          Decimal              @default(0, map: "DF__invoices__medica__16CE6296") @db.Decimal(18, 2)
+  medicaid_covered_amount          Decimal              @default(0, map: "DF__invoices__medica__17C286CF") @db.Decimal(18, 2)
+  private_insurance_covered_amount Decimal              @default(0, map: "DF__invoices__privat__18B6AB08") @db.Decimal(18, 2)
+  patient_responsibility_amount    Decimal              @default(0, map: "DF__invoices__patien__19AACF41") @db.Decimal(18, 2)
+  status                           String               @default("DRAFT", map: "DF__invoices__status__1A9EF37A") @db.VarChar(20)
+  due_date                         DateTime             @db.Date
+  is_deleted                       Boolean              @default(false, map: "DF__invoices__is_del__1C873BEC")
+  created_at                       DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__invoices__create__1D7B6025") @db.DateTimeOffset
+  updated_at                       DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__invoices__update__1E6F845E") @db.DateTimeOffset
+  invoice_line_items               invoice_line_items[]
+  residents                        residents            @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__invoices__reside__15DA3E5D")
+  payments                         payments[]
+
+  @@index([resident_id], map: "idx_invoices_resident_id")
+}
+
+model medication_logs {
+  id                                           BigInt            @id(map: "PK__medicati__3213E83F99131E68") @default(autoincrement())
+  order_id                                     String            @db.UniqueIdentifier
+  administered_by                              String            @db.UniqueIdentifier
+  witnessed_by                                 String?           @db.UniqueIdentifier
+  status                                       String            @db.VarChar(20)
+  is_clinically_justified                      Boolean           @default(false, map: "DF__medicatio__is_cl__7C1A6C5A")
+  override_reason                              String?           @db.NVarChar(500)
+  logged_at                                    DateTime          @default(dbgenerated("sysdatetimeoffset()"), map: "DF__medicatio__logge__7D0E9093") @db.DateTimeOffset
+  users_medication_logs_administered_byTousers User              @relation("medication_logs_administered_byTousers", fields: [administered_by], references: [id], onUpdate: NoAction, map: "FK__medicatio__admin__793DFFAF")
+  medication_orders                            medication_orders @relation(fields: [order_id], references: [id], onUpdate: NoAction, map: "FK__medicatio__order__7849DB76")
+  users_medication_logs_witnessed_byTousers    User?             @relation("medication_logs_witnessed_byTousers", fields: [witnessed_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__medicatio__witne__7A3223E8")
+
+  @@index([order_id, logged_at(sort: Desc)], map: "idx_medication_logs_order_id_logged_at")
+}
+
+model medication_orders {
+  id                      String                 @id(map: "PK__medicati__3213E83F5C7E27B9") @default(dbgenerated("newid()"), map: "DF__medication_o__id__6AEFE058") @db.UniqueIdentifier
+  resident_id             String                 @db.UniqueIdentifier
+  prescribed_by           String                 @db.UniqueIdentifier
+  drug_name               String                 @db.NVarChar(200)
+  dosage                  String                 @db.NVarChar(100)
+  route                   String                 @db.VarChar(30)
+  frequency               String                 @db.NVarChar(100)
+  is_controlled_substance Boolean                @default(false, map: "DF__medicatio__is_co__6DCC4D03")
+  status                  String                 @db.VarChar(20)
+  is_deleted              Boolean                @default(false, map: "DF__medicatio__is_de__6FB49575")
+  created_at              DateTime               @default(dbgenerated("sysdatetimeoffset()"), map: "DF__medicatio__creat__70A8B9AE") @db.DateTimeOffset
+  updated_at              DateTime               @default(dbgenerated("sysdatetimeoffset()"), map: "DF__medicatio__updat__719CDDE7") @db.DateTimeOffset
+  medication_logs         medication_logs[]
+  users                   User                   @relation(fields: [prescribed_by], references: [id], onUpdate: NoAction, map: "FK__medicatio__presc__6CD828CA")
+  residents               residents              @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__medicatio__resid__6BE40491")
+  medication_schedules    medication_schedules[]
+
+  @@index([resident_id], map: "idx_medication_orders_resident_id")
+}
+
+model medication_schedules {
+  id                BigInt            @id(map: "PK__medicati__3213E83FA8CBF65F") @default(autoincrement())
+  order_id          String            @db.UniqueIdentifier
+  scheduled_time    DateTime          @db.Time
+  is_active         Boolean           @default(true, map: "DF__medicatio__is_ac__756D6ECB")
+  medication_orders medication_orders @relation(fields: [order_id], references: [id], onUpdate: NoAction, map: "FK__medicatio__order__74794A92")
+
+  @@index([order_id], map: "idx_medication_schedules_order_id")
+}
+
+model notifications {
+  id         String   @id(map: "PK__notifica__3213E83FC7449CF6") @default(dbgenerated("newid()"), map: "DF__notification__id__4C364F0E") @db.UniqueIdentifier
+  title      String   @db.NVarChar(255)
+  type       String   @db.VarChar(50)
+  is_read    Boolean  @default(false, map: "DF__notificat__is_re__4D2A7347")
+  user_id    String   @db.UniqueIdentifier
+  created_at DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__notificat__creat__4F12BBB9") @db.DateTimeOffset
+  users      User     @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "FK__notificat__user___4E1E9780")
+
+  @@index([user_id, is_read], map: "idx_notifications_user_id_is_read")
+}
+
+model payments {
+  id                      String   @id(map: "PK__payments__3213E83FB9BADE80") @default(dbgenerated("newid()"), map: "DF__payments__id__251C81ED") @db.UniqueIdentifier
+  invoice_id              String   @db.UniqueIdentifier
+  payer_type              String   @db.VarChar(20)
+  payment_method          String   @db.VarChar(20)
+  amount                  Decimal  @db.Decimal(18, 2)
+  payment_token_encrypted String?  @db.VarChar(512)
+  received_by             String   @db.UniqueIdentifier
+  paid_at                 DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__payments__paid_a__29E1370A") @db.DateTimeOffset
+  invoices                invoices @relation(fields: [invoice_id], references: [id], onUpdate: NoAction, map: "FK__payments__invoic__2610A626")
+  users                   User     @relation(fields: [received_by], references: [id], onUpdate: NoAction, map: "FK__payments__receiv__28ED12D1")
+
+  @@index([invoice_id], map: "idx_payments_invoice_id")
+}
+
+model phi_access_logs {
+  id            BigInt   @id(map: "PK__phi_acce__3213E83F6C87F4C1") @default(autoincrement())
+  table_name    String   @db.NVarChar(100)
+  record_id     String   @db.NVarChar(100)
+  accessed_by   String   @db.UniqueIdentifier
+  access_type   String   @db.VarChar(20)
+  access_reason String?  @db.NVarChar(255)
+  ip_address    String?  @db.VarChar(45)
+  accessed_at   DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__phi_acces__acces__4959E263") @db.DateTimeOffset
+  users         User     @relation(fields: [accessed_by], references: [id], onUpdate: NoAction, map: "FK__phi_acces__acces__477199F1")
+
+  @@index([accessed_by], map: "idx_phi_access_logs_accessed_by")
+  @@index([table_name, record_id], map: "idx_phi_access_logs_table_record")
+}
+
+model pre_admission_screenings {
+  id          String    @id(map: "PK__pre_admi__3213E83FFE106A16") @default(dbgenerated("newid()"), map: "DF__pre_admissio__id__2645B050") @db.UniqueIdentifier
+  resident_id String    @db.UniqueIdentifier
+  screened_by String    @db.UniqueIdentifier
+  status      String    @db.VarChar(20)
+  created_at  DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__pre_admis__creat__2A164134") @db.DateTimeOffset
+  residents   residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__pre_admis__resid__2739D489")
+  users       User      @relation(fields: [screened_by], references: [id], onUpdate: NoAction, map: "FK__pre_admis__scree__282DF8C2")
+
+  @@index([resident_id], map: "idx_pre_admission_screenings_resident_id")
+}
+
+model resident_care_level_history {
+  id            String      @id(map: "PK__resident__3213E83F22DD591B") @default(dbgenerated("newid()"), map: "DF__resident_car__id__17036CC0") @db.UniqueIdentifier
+  resident_id   String      @db.UniqueIdentifier
+  care_level_id BigInt
+  start_date    DateTime    @db.Date
+  end_date      DateTime?   @db.Date
+  care_levels   care_levels @relation(fields: [care_level_id], references: [id], onUpdate: NoAction, map: "FK__resident___care___18EBB532")
+  residents     residents   @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__resident___resid__17F790F9")
+
+  @@index([resident_id], map: "idx_resident_care_level_history_resident_id")
+}
+
+model resident_contacts {
+  id                           BigInt    @id(map: "PK__resident__3213E83F0B01B09F") @default(autoincrement())
+  resident_id                  String    @db.UniqueIdentifier
+  contact_id                   String    @db.UniqueIdentifier
+  relationship_type            String    @db.VarChar(50)
+  is_guarantor                 Boolean   @default(false, map: "DF__resident___is_gu__1EA48E88")
+  is_emergency_contact         Boolean   @default(false, map: "DF__resident___is_em__1F98B2C1")
+  is_primary                   Boolean   @default(false, map: "DF__resident___is_pr__208CD6FA")
+  financial_responsibility_pct Decimal?  @db.Decimal(5, 2)
+  created_at                   DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__resident___creat__22751F6C") @db.DateTimeOffset
+  updated_at                   DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__resident___updat__236943A5") @db.DateTimeOffset
+  contacts                     contacts  @relation(fields: [contact_id], references: [id], onUpdate: NoAction, map: "FK__resident___conta__1DB06A4F")
+  residents                    residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__resident___resid__1CBC4616")
+
+  @@unique([resident_id, contact_id, relationship_type], map: "uq_resident_contact")
+  @@index([contact_id], map: "idx_resident_contacts_contact_id")
+  @@index([resident_id], map: "idx_resident_contacts_resident_id")
+}
+
+model resident_insurance_policies {
+  id                      String              @id(map: "PK__resident__3213E83F8715479F") @default(dbgenerated("newid()"), map: "DF__resident_ins__id__0D44F85C") @db.UniqueIdentifier
+  resident_id             String              @db.UniqueIdentifier
+  insurance_provider_id   BigInt
+  policy_number_encrypted String              @db.VarChar(512)
+  group_number            String?             @db.NVarChar(100)
+  effective_from          DateTime            @db.Date
+  effective_to            DateTime?           @db.Date
+  is_primary              Boolean             @default(false, map: "DF__resident___is_pr__10216507")
+  is_deleted              Boolean             @default(false, map: "DF__resident___is_de__11158940")
+  created_at              DateTime            @default(dbgenerated("sysdatetimeoffset()"), map: "DF__resident___creat__1209AD79") @db.DateTimeOffset
+  insurance_providers     insurance_providers @relation(fields: [insurance_provider_id], references: [id], onUpdate: NoAction, map: "FK__resident___insur__0F2D40CE")
+  residents               residents           @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__resident___resid__0E391C95")
+
+  @@index([resident_id], map: "idx_resident_insurance_policies_resident_id")
+}
+
+model resident_sensitive_info {
+  id                              BigInt    @id(map: "PK__resident__3213E83F7893ADE1") @default(autoincrement())
+  resident_id                     String    @unique(map: "UQ__resident__A5BC2ECF746C62C8") @db.UniqueIdentifier
+  ssn_encrypted                   String?   @db.VarChar(512)
+  medical_record_number_encrypted String?   @db.VarChar(512)
+  primary_insurance_id_encrypted  String?   @db.VarChar(512)
+  bank_account_encrypted          String?   @db.VarChar(512)
+  created_at                      DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__resident___creat__1332DBDC") @db.DateTimeOffset
+  updated_at                      DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__resident___updat__14270015") @db.DateTimeOffset
+  residents                       residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__resident___resid__123EB7A3")
+}
+
+model residents {
+  id                          String                        @id(map: "PK__resident__3213E83F66E8E33E") @default(dbgenerated("newid()"), map: "DF__residents__id__05D8E0BE") @db.UniqueIdentifier
+  address_id                  BigInt?
+  bed_id                      String?                       @db.UniqueIdentifier
+  first_name                  String                        @db.NVarChar(100)
+  middle_name                 String?                       @db.NVarChar(100)
+  last_name                   String                        @db.NVarChar(100)
+  date_of_birth               DateTime                      @db.Date
+  gender                      String?                       @db.VarChar(20)
+  marital_status              String?                       @db.VarChar(20)
+  religion_preference         String?                       @db.NVarChar(100)
+  status                      String                        @default("PENDING", map: "DF__residents__statu__09A971A2") @db.VarChar(20)
+  is_chart_locked             Boolean                       @default(false, map: "DF__residents__is_ch__0B91BA14")
+  is_deleted                  Boolean                       @default(false, map: "DF__residents__is_de__0C85DE4D")
+  deleted_at                  DateTime?                     @db.DateTimeOffset
+  created_at                  DateTime                      @default(dbgenerated("sysdatetimeoffset()"), map: "DF__residents__creat__0D7A0286") @db.DateTimeOffset
+  updated_at                  DateTime                      @default(dbgenerated("sysdatetimeoffset()"), map: "DF__residents__updat__0E6E26BF") @db.DateTimeOffset
+  admissions                  admissions[]
+  assessments                 assessments[]
+  care_plans                  care_plans[]
+  clinical_records            clinical_records[]
+  incidents                   incidents[]
+  invoices                    invoices[]
+  medication_orders           medication_orders[]
+  pre_admission_screenings    pre_admission_screenings[]
+  resident_care_level_history resident_care_level_history[]
+  resident_contacts           resident_contacts[]
+  resident_insurance_policies resident_insurance_policies[]
+  resident_sensitive_info     resident_sensitive_info?
+  addresses                   addresses?                    @relation(fields: [address_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__residents__addre__06CD04F7")
+  beds                        beds?                         @relation(fields: [bed_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__residents__bed_i__07C12930")
+  vital_signs                 vital_signs[]
+
+  @@index([bed_id], map: "idx_residents_bed_id")
+  @@index([date_of_birth], map: "idx_residents_dob")
+}
+
+model rooms {
+  id          String   @id(map: "PK__rooms__3213E83FE0CF32C5") @default(dbgenerated("newid()"), map: "DF__rooms__id__628FA481") @db.UniqueIdentifier
+  facility_id String   @db.UniqueIdentifier
+  room_number String   @db.NVarChar(20)
+  room_type   String   @db.NVarChar(50)
+  is_deleted  Boolean  @default(false, map: "DF__rooms__is_delete__6477ECF3")
+  beds        beds[]
+  facilities  Facility @relation(fields: [facility_id], references: [id], onUpdate: NoAction, map: "FK__rooms__facility___6383C8BA")
+
+  @@unique([facility_id, room_number], map: "uq_room_per_facility")
+  @@index([facility_id], map: "idx_rooms_facility_id")
+}
+
+model shift_assignments {
+  id           BigInt    @id(map: "PK__shift_as__3213E83F3A696C78") @default(autoincrement())
+  shift_id     BigInt
+  user_id      String    @db.UniqueIdentifier
+  work_date    DateTime  @db.Date
+  status       String    @default("SCHEDULED", map: "DF__shift_ass__statu__0697FACD") @db.VarChar(20)
+  clock_in_at  DateTime? @db.DateTimeOffset
+  clock_out_at DateTime? @db.DateTimeOffset
+  shifts       shifts    @relation(fields: [shift_id], references: [id], onUpdate: NoAction, map: "FK__shift_ass__shift__04AFB25B")
+  users        User      @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "FK__shift_ass__user___05A3D694")
+
+  @@unique([shift_id, user_id, work_date], map: "uq_shift_assignment")
+  @@index([user_id, work_date], map: "idx_shift_assignments_user_id_work_date")
+}
+
+model shifts {
+  id                BigInt              @id(map: "PK__shifts__3213E83F0E11809C") @default(autoincrement())
+  facility_id       String              @db.UniqueIdentifier
+  shift_name        String              @db.VarChar(20)
+  start_time        DateTime            @db.Time
+  end_time          DateTime            @db.Time
+  shift_assignments shift_assignments[]
+  facilities        Facility            @relation(fields: [facility_id], references: [id], onUpdate: NoAction, map: "FK__shifts__facility__7FEAFD3E")
+
+  @@index([facility_id], map: "idx_shifts_facility_id")
+}
+
+model sla_configs {
+  id                  BigInt              @id(map: "PK__sla_conf__3213E83F4EFF83C3") @default(autoincrement())
+  sla_window_hrs      Int
+  severity_id         BigInt
+  incident_severities incident_severities @relation(fields: [severity_id], references: [id], onUpdate: NoAction, map: "FK__sla_confi__sever__2F9A1060")
+}
+
+model staffing_configs {
+  id                       BigInt   @id(map: "PK__staffing__3213E83F2715FC49") @default(autoincrement())
+  facility_id              String   @db.UniqueIdentifier
+  min_hrs_per_resident_day Decimal  @db.Decimal(5, 2)
+  warn_below_percentage    Int
+  created_at               DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__staffing___creat__6EF57B66") @db.DateTimeOffset
+  facilities               Facility @relation(fields: [facility_id], references: [id], onUpdate: NoAction, map: "FK__staffing___facil__6E01572D")
+
+  @@index([facility_id], map: "idx_staffing_configs_facility_id")
+}
+
+model vital_signs {
+  id                       BigInt    @id(map: "PK__vital_si__3213E83FEF752097") @default(autoincrement())
+  resident_id              String    @db.UniqueIdentifier
+  recorded_by              String    @db.UniqueIdentifier
+  blood_pressure_systolic  Int?      @db.SmallInt
+  blood_pressure_diastolic Int?      @db.SmallInt
+  heart_rate_bpm           Int?      @db.SmallInt
+  respiratory_rate         Int?      @db.SmallInt
+  temperature_fahrenheit   Decimal?  @db.Decimal(4, 1)
+  spo2_percentage          Int?      @db.TinyInt
+  pain_scale               Int?      @db.TinyInt
+  notes                    String?   @db.NVarChar(500)
+  recorded_at              DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__vital_sig__recor__4F47C5E3") @db.DateTimeOffset
+  users                    User      @relation(fields: [recorded_by], references: [id], onUpdate: NoAction, map: "FK__vital_sig__recor__4C6B5938")
+  residents                residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__vital_sig__resid__4B7734FF")
+
+  @@index([resident_id, recorded_at(sort: Desc)], map: "idx_vital_signs_resident_id_recorded_at")
 }
