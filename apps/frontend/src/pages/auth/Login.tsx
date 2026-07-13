@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthLayout } from "../../components/auth/AuthLayout";
 import { authService } from "../../services/auth";
+import { session } from "../../utils/session";
 
 export function Login() {
     const navigate = useNavigate();
@@ -43,15 +44,17 @@ export function Login() {
         try {
             const response = await authService.login(emailOrPhone, password);
 
-            console.log(response);
-            console.log("yes1");
-            console.log(response.success, response.data);
-
             if (response.success && response.data) {
-                console.log("yes");
-            }
+                if (response.data.accessToken && response.data.refreshToken && response.data.user) {
+                    session.save(response.data.accessToken, response.data.refreshToken, response.data.user);
 
-            if (response.success && response.data) {
+                    const roleName = response.data.user.roleName?.toLowerCase() ?? "";
+                    navigate(roleName.includes("admin") ? "/dashboard/admin" : "/dashboard", {
+                        replace: true,
+                    });
+                    return;
+                }
+
                 if (response.data.twoStepRequired) {
                     // Show demo OTP briefly before redirecting
                     if (response.data.tempCode) {

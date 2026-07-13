@@ -1,13 +1,13 @@
 /* =====================================================================================
    NURSING HOME / ASSISTED LIVING MANAGEMENT SYSTEM — SCHEMA
    Dialect: Microsoft SQL Server (T-SQL)
-   Ghi chú: Cấu trúc bảng và các ràng buộc (1-N, N-N, 1-1) được thiết kế bám sát 
+   Ghi chú: Cấu trúc bảng và các ràng buộc (1-N, N-N, 1-1) được thiết kế bám sát
    100% theo 57 Rules và Table Models (Hình ảnh).
 ===================================================================================== */
 
-CREATE DATABASE NursingHomeManagement;
+CREATE DATABASE nursing_home_db;
 GO
-USE NursingHomeManagement;
+USE nursing_home_db;
 GO
 
 -- =====================================================================================
@@ -37,7 +37,7 @@ CREATE TABLE role_permissions (
 );
 
 -- =====================================================================================
--- PART 1: ADDRESS 
+-- PART 1: ADDRESS
 -- =====================================================================================
 
 CREATE TABLE addresses (
@@ -45,7 +45,7 @@ CREATE TABLE addresses (
     street_line1    NVARCHAR(200) NOT NULL,
     street_line2    NVARCHAR(200) NULL,
     city            NVARCHAR(100) NOT NULL,
-    state           CHAR(2) NOT NULL CHECK (state = UPPER(state)),   
+    state           CHAR(2) NOT NULL CHECK (state = UPPER(state)),
     zip_code        VARCHAR(10) NOT NULL CHECK (zip_code LIKE '[0-9][0-9][0-9][0-9][0-9]' OR zip_code LIKE '[0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'),
     address_type    VARCHAR(20) NOT NULL DEFAULT 'HOME' CHECK (address_type IN ('HOME','MAILING','FACILITY','BILLING')),
     is_deleted      BIT NOT NULL DEFAULT 0,
@@ -66,10 +66,10 @@ CREATE TABLE users (
     first_name          NVARCHAR(100) NOT NULL,
     middle_name         NVARCHAR(100) NULL,
     last_name           NVARCHAR(100) NOT NULL,
-    license_number      NVARCHAR(100) NULL,          
+    license_number      NVARCHAR(100) NULL,
     phone_number        NVARCHAR(20) NULL,
     status              VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE','LOCKED')),
-    mfa_enabled         BIT NOT NULL DEFAULT 0,       
+    mfa_enabled         BIT NOT NULL DEFAULT 0,
     last_login_at       DATETIMEOFFSET(0) NULL,
     is_deleted          BIT NOT NULL DEFAULT 0,
     deleted_at          DATETIMEOFFSET(0) NULL,
@@ -88,7 +88,7 @@ CREATE TABLE facilities (
     address_id      BIGINT NULL REFERENCES addresses(id),
     facility_code   NVARCHAR(50) NOT NULL UNIQUE,
     name            NVARCHAR(200) NOT NULL,
-    license_number  NVARCHAR(100) NOT NULL,           
+    license_number  NVARCHAR(100) NOT NULL,
     target_state    CHAR(2) NOT NULL,
     phone_number    NVARCHAR(20) NULL,
     is_deleted      BIT NOT NULL DEFAULT 0,
@@ -196,10 +196,10 @@ CREATE INDEX idx_residents_dob ON residents(date_of_birth);
 CREATE TABLE resident_sensitive_info (
     id                              BIGINT IDENTITY(1,1) PRIMARY KEY,
     resident_id                     UNIQUEIDENTIFIER NOT NULL UNIQUE REFERENCES residents(id),
-    ssn_encrypted                   VARCHAR(512) NULL,      
-    medical_record_number_encrypted VARCHAR(512) NULL,      
+    ssn_encrypted                   VARCHAR(512) NULL,
+    medical_record_number_encrypted VARCHAR(512) NULL,
     primary_insurance_id_encrypted  VARCHAR(512) NULL,
-    bank_account_encrypted          VARCHAR(512) NULL,      
+    bank_account_encrypted          VARCHAR(512) NULL,
     created_at                      DATETIMEOFFSET(0) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
     updated_at                      DATETIMEOFFSET(0) NOT NULL DEFAULT SYSDATETIMEOFFSET()
 );
@@ -217,7 +217,7 @@ CREATE TABLE resident_contacts (
     id                          BIGINT IDENTITY(1,1) PRIMARY KEY,
     resident_id                 UNIQUEIDENTIFIER NOT NULL REFERENCES residents(id),
     contact_id                  UNIQUEIDENTIFIER NOT NULL REFERENCES contacts(id),
-    relationship_type           VARCHAR(50) NOT NULL,   
+    relationship_type           VARCHAR(50) NOT NULL,
     is_guarantor                BIT NOT NULL DEFAULT 0,
     is_emergency_contact        BIT NOT NULL DEFAULT 0,
     is_primary                  BIT NOT NULL DEFAULT 0,
@@ -360,9 +360,9 @@ CREATE TABLE medication_orders (
     prescribed_by           UNIQUEIDENTIFIER NOT NULL REFERENCES users(id),
     drug_name               NVARCHAR(200) NOT NULL,
     dosage                  NVARCHAR(100) NOT NULL,
-    route                   VARCHAR(30) NOT NULL,          
-    frequency               NVARCHAR(100) NOT NULL,        
-    is_controlled_substance BIT NOT NULL DEFAULT 0,        
+    route                   VARCHAR(30) NOT NULL,
+    frequency               NVARCHAR(100) NOT NULL,
+    is_controlled_substance BIT NOT NULL DEFAULT 0,
     status                  VARCHAR(20) NOT NULL CHECK (status IN ('ACTIVE','DISCONTINUED','ON_HOLD')),
     is_deleted              BIT NOT NULL DEFAULT 0,
     created_at              DATETIMEOFFSET(0) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
@@ -448,7 +448,7 @@ CREATE TABLE invoices (
     medicare_covered_amount             DECIMAL(18,2) NOT NULL DEFAULT 0,
     medicaid_covered_amount             DECIMAL(18,2) NOT NULL DEFAULT 0,
     private_insurance_covered_amount    DECIMAL(18,2) NOT NULL DEFAULT 0,
-    patient_responsibility_amount       DECIMAL(18,2) NOT NULL DEFAULT 0,  
+    patient_responsibility_amount       DECIMAL(18,2) NOT NULL DEFAULT 0,
     status                              VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','SENT','PARTIALLY_PAID','PAID','OVERDUE','VOID')),
     due_date                            DATE NOT NULL,
     is_deleted                          BIT NOT NULL DEFAULT 0,
@@ -524,10 +524,10 @@ CREATE INDEX idx_chart_lock_events_incident_id ON chart_lock_events(incident_id)
 CREATE TABLE audit_logs (
     id              BIGINT IDENTITY(1,1) PRIMARY KEY,
     table_name      NVARCHAR(100) NOT NULL,
-    record_id       NVARCHAR(100) NOT NULL,     
+    record_id       NVARCHAR(100) NOT NULL,
     action          VARCHAR(20) NOT NULL CHECK (action IN ('INSERT','UPDATE','DELETE')),
-    old_data        NVARCHAR(MAX) NULL,   
-    new_data        NVARCHAR(MAX) NULL,          
+    old_data        NVARCHAR(MAX) NULL,
+    new_data        NVARCHAR(MAX) NULL,
     performed_by    UNIQUEIDENTIFIER NOT NULL REFERENCES users(id),
     performed_at    DATETIMEOFFSET(0) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
     ip_address      VARCHAR(45) NULL
