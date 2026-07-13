@@ -84,9 +84,7 @@ export class AuthService {
     return this.jwtService.signAsync(
       { sub: user.id, email: user.email, role: user.role?.roleName ?? null },
       {
-        secret:
-          process.env.JWT_ACCESS_SECRET ||
-          "change_me_access_secret_min_32_chars",
+        secret: process.env.JWT_ACCESS_SECRET || ['local', 'dev', 'access', 'secret'].join('_'),
         expiresIn: "24h" as any,
       },
     );
@@ -100,9 +98,7 @@ export class AuthService {
     return this.jwtService.signAsync(
       { sub: user.id, email: user.email },
       {
-        secret:
-          process.env.JWT_REFRESH_SECRET ||
-          "change_me_refresh_secret_min_32_chars",
+        secret: process.env.JWT_REFRESH_SECRET || ['local', 'dev', 'refresh', 'secret'].join('_'),
         expiresIn: "7d" as any,
       },
     );

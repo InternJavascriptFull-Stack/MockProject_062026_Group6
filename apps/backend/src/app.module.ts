@@ -9,7 +9,14 @@ import { FacilitiesModule } from './facilities/facilities.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, RolesModule, FacilitiesModule, DashboardModule],
+  imports: [
+    PrismaModule, 
+    AuthModule, 
+    UsersModule, 
+    RolesModule, 
+    FacilitiesModule, 
+    DashboardModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -69,16 +69,11 @@ export function Login() {
                         },
                         response.data.tempCode ? 2000 : 0,
                     );
-                } else if (response.data.accessToken) {
-                    // Non-MFA path: token returned directly
-                    localStorage.setItem("token", response.data.accessToken);
-                    navigate("/dashboard");
                 }
             } else {
                 setErrors({ api: response.message || "Invalid email or password" });
             }
         } catch (err) {
-            console.log(err);
             setErrors({ api: "Failed to connect to authentication server. Please try again." });
         } finally {
             setIsLoading(false);
