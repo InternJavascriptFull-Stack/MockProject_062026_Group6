@@ -14,6 +14,10 @@ import { ResidentReceptionPage } from "./pages/residents/residentReceptionPage";
 import { DoctorsSchedulePage } from "./pages/schedule/doctorsSchedulePage";
 import { EmarPage } from "./pages/emar/emarPage";
 import { CarePlanPage } from "./pages/carePlan/carePlanPage";
+import IncidentSeverityLevels from "./pages/incidentSeverity/IncidentSeverityLevels";
+import SlaConfiguration from "./pages/slaConfig/SlaConfiguration";
+import EquipmentInventory from "./pages/inventory/EquipmentInventory";
+import EquipmentForm from "./pages/inventory/EquipmentForm";
 
 function App() {
   return (
@@ -89,6 +93,12 @@ function App() {
       <Route path="/doctor-schedule" element={<ProtectedRoute><AdminLayout><DoctorsSchedulePage /></AdminLayout></ProtectedRoute>} />
       <Route path="/emar" element={<ProtectedRoute><AdminLayout><EmarPage /></AdminLayout></ProtectedRoute>} />
       <Route path="/care-plan" element={<ProtectedRoute><AdminLayout><CarePlanPage /></AdminLayout></ProtectedRoute>} />
+
+      <Route path="/admin/incident-severity" element={<ProtectedRoute><AdminLayout><IncidentSeverityLevels /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/sla-config" element={<ProtectedRoute><AdminLayout><SlaConfiguration /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/equipment" element={<ProtectedRoute><AdminLayout><EquipmentInventory /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/equipment/add" element={<ProtectedRoute><AdminLayout><EquipmentForm /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/equipment/:id/edit" element={<ProtectedRoute><AdminLayout><EquipmentForm /></AdminLayout></ProtectedRoute>} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
