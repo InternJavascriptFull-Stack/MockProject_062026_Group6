@@ -1,56 +1,19 @@
-import { Calendar, ClipboardList, HeartPulse, LayoutDashboard, LogIn, Stethoscope, UserRound, Users, ShieldAlert } from "lucide-react";
+import { Calendar, ClipboardCheck, ClipboardList, FilePlus2, HeartPulse, LayoutDashboard, Receipt, Stethoscope, UserRound, Users, ShieldAlert } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { APP_ROUTES } from "../constants/appRoutes";
 
 const navigationItems = [
-    {
-        label: "Dashboard",
-        to: APP_ROUTES.DASHBOARD,
-        icon: LayoutDashboard,
-        end: true,
-    },
-    {
-        label: "Residents",
-        to: APP_ROUTES.RESIDENTS,
-        icon: Users,
-        end: true,
-    },
-    {
-        label: "Pre-screening",
-        to: APP_ROUTES.PRE_ADMISSION_SCREENING,
-        icon: ClipboardList,
-        end: true,
-    },
-    {
-        label: "Doctor Schedule",
-        to: APP_ROUTES.DOCTOR_SCHEDULE,
-        icon: Calendar,
-        end: true,
-    },
-    {
-        label: "eMAR Medicine",
-        to: APP_ROUTES.EMAR,
-        icon: Stethoscope,
-        end: true,
-    },
-    {
-        label: "Care Plans",
-        to: APP_ROUTES.CARE_PLANS,
-        icon: ClipboardList,
-        end: false,
-    },
-    {
-        label: "Incident & Risk",
-        to: "/incidents",
-        icon: ShieldAlert,
-        end: false,
-    },
-    {
-        label: "Login",
-        to: APP_ROUTES.LOGIN,
-        icon: LogIn,
-        end: true,
-    },
+    { label: "Dashboard", to: APP_ROUTES.DASHBOARD, icon: LayoutDashboard, end: true },
+    { label: "Residents", to: APP_ROUTES.RESIDENTS, icon: Users, end: false },
+    { label: "Pre-screening", to: APP_ROUTES.PRE_ADMISSION_SCREENING, icon: ClipboardList, end: true },
+    { label: "Admission", to: APP_ROUTES.ADMISSION_CREATE, icon: FilePlus2, end: true },
+    { label: "Assessments", to: APP_ROUTES.ASSESSMENT_HISTORY, icon: ClipboardCheck, end: false },
+    { label: "Care Plans", to: APP_ROUTES.CARE_PLANS, icon: ClipboardList, end: false },
+    { label: "Daily Tasks", to: APP_ROUTES.DAILY_TASKS, icon: ClipboardCheck, end: false },
+    { label: "Billing", to: APP_ROUTES.BILLING_COST_PANEL, icon: Receipt, end: false },
+    { label: "Incident & Risk", to: APP_ROUTES.INCIDENTS, icon: ShieldAlert, end: false },
+    { label: "Doctor Schedule", to: APP_ROUTES.DOCTOR_SCHEDULE, icon: Calendar, end: true },
+    { label: "eMAR Medicine", to: APP_ROUTES.EMAR, icon: Stethoscope, end: true },
 ];
 
 export function AppLayout() {

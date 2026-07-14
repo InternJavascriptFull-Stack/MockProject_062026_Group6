@@ -1,42 +1,13 @@
-import { session } from "../utils/session";
+import { apiClient } from "./apiClient";
 
-const BASE_URL = "/api/dashboard";
+async function getDashboard(path: string) {
+    const { data } = await apiClient.get(`/dashboard/${path}`);
+    return data;
+}
 
 export const dashboardService = {
-  async getNurseDashboard() {
-    const token = session.getAccessToken();
-    const res = await fetch(`${BASE_URL}/nurse`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) { session.clear(); window.location.href = '/login'; }
-    if (!res.ok) return { success: false };
-    return res.json();
-  },
-  async getDonDashboard() {
-    const token = session.getAccessToken();
-    const res = await fetch(`${BASE_URL}/don`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) { session.clear(); window.location.href = '/login'; }
-    if (!res.ok) return { success: false };
-    return res.json();
-  },
-  async getCnaDashboard() {
-    const token = session.getAccessToken();
-    const res = await fetch(`${BASE_URL}/cna`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) { session.clear(); window.location.href = '/login'; }
-    if (!res.ok) return { success: false };
-    return res.json();
-  },
-  async getSummaryDashboard() {
-    const token = session.getAccessToken();
-    const res = await fetch(`${BASE_URL}/summary`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) { session.clear(); window.location.href = '/login'; }
-    if (!res.ok) return { success: false };
-    return res.json();
-  }
+    getNurseDashboard: () => getDashboard("nurse"),
+    getDonDashboard: () => getDashboard("don"),
+    getCnaDashboard: () => getDashboard("cna"),
+    getSummaryDashboard: () => getDashboard("summary"),
 };

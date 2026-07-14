@@ -1,108 +1,238 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service.js";
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+    constructor(private readonly prisma: PrismaService) {}
 
-  async getNurseDashboard(_userId: string) {
-    // We mix real DB counts with fallback mock data to ensure the UI looks complete
-    let assessmentsDue = 0;
-    let carePlansToSubmit = 0;
-    try {
-      assessmentsDue = await this.prisma.assessments.count();
-      carePlansToSubmit = await this.prisma.care_plans.count();
-    } catch (e) {}
+    private roomNumber(resident: any): string {
+        return resident?.beds?.rooms?.room_number ?? "Unassigned";
+    }
 
-    return {
-      success: true,
-      data: {
-        assessmentsDue: assessmentsDue || 3,
-        locAwaitingConfirm: 2,
-        carePlansToSubmit: carePlansToSubmit || 4,
-        reassessmentsDue: 2,
-        assignedResidentsDueSoon: [
-          { resident: "Susan Wright", room: "114B", task: "Assessment due 2026-07-05 (BR-02: 14-day)", status: "Overdue", type: "overdue" },
-          { resident: "James Porter", room: "210B", task: "Reassessment due 2026-07-03 (BR-03: 90-day)", status: "Review Due", type: "warning" },
-          { resident: "Mary Coleman", room: "118A", task: "Care plan Draft - not yet submitted", status: "Draft", type: "neutral" },
-          { resident: "Elena Ramos", room: "106A", task: "LOC classification awaiting confirm", status: "Pending Review", type: "warning" },
-          { resident: "Thomas Baker", room: "220C", task: "Care plan Active - on track", status: "On track", type: "success" }
-        ],
-        openIncidents: [
-          { type: "Fall", resident: "Susan Wright", room: "114B", detail: "Reported 2026-07-02 09:14 · Investigating", severity: "High" },
-          { type: "Skin tear", resident: "James Porter", room: "210B", detail: "Reported 2026-07-01 16:40 · Open", severity: "Medium" },
-          { type: "Meds Due Today", resident: "soon", room: "", detail: "Available when M3 eMAR ships.", severity: "neutral" }
-        ]
-      }
-    };
-  }
+    private startOfToday(): Date {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }
 
-  async getDonDashboard(_userId: string) {
-    return {
-      success: true,
-      data: {
-        pendingReview: 6,
-        openIncidents: 3,
-        reassessmentsDue: 4,
-        complianceAlerts: 2,
-        staffingAlert: "Staffing ratio below target on Night shift (Wing B): 1 : 9 (target 1 : 8)",
-        carePlansPendingReview: [
-          { resident: "Mary Coleman", room: "118A", submittedBy: "Anna Lee, RN", submittedDate: "2026-07-02", locTier: "Tier 2", waiting: "18h" },
-          { resident: "Elena Ramos", room: "106A", submittedBy: "Anna Lee, RN", submittedDate: "2026-07-01", locTier: "Tier 1", waiting: "1d 6h" },
-          { resident: "Thomas Baker", room: "220C", submittedBy: "Priya Nair, LPN", submittedDate: "2026-07-03", locTier: "Tier 3", waiting: "2h" },
-          { resident: "Grace Kim", room: "112B", submittedBy: "Anna Lee, RN", submittedDate: "2026-06-30", locTier: "Tier 4", waiting: "2d 1h" }
-        ],
-        censusAndLocMix: {
-          current: 42,
-          total: 48,
-          occupancyRate: 87.5,
-          tiers: [
-            { label: "Tier 1 (0-8)", count: 9 },
-            { label: "Tier 2 (9-16)", count: 14 },
-            { label: "Tier 3 (17-24)", count: 12 },
-            { label: "Tier 4 (25-32)", count: 7 }
-          ]
-        },
-        billingSnapshot: {
-          estDailyRevenue: 18942.00,
-          estMonthlyRevenue: 575540.00,
-          pendingAuthorizations: 3,
-          medicare100DayCapAlerts: 1
+    async getNurseDashboard(_userId: string) {
+        const today = this.startOfToday();
+        const assessmentCutoff = new Date(today.getTime() - 14 * DAY_IN_MS);
+        const reviewCutoff = new Date(today.getTime() - 90 * DAY_IN_MS);
+
+        const residents = await this.prisma.residents.findMany({
+            where: { is_deleted: false, status: "ACTIVE" },
+            include: {
+                beds: { include: { rooms: true } },
+                assessments: { orderBy: { created_at: "desc" }, take: 1 },
+                resident_care_level_history: { where: { end_date: null }, take: 1 },
+                care_plans: { where: { is_deleted: false }, orderBy: { updated_at: "desc" }, take: 1 },
+            },
+        });
+        const openIncidents = await this.prisma.incidents.findMany({
+            where: { status: { not: "CLOSED" } },
+            include: {
+                residents: { include: { beds: { include: { rooms: true } } } },
+                incident_severities: true,
+            },
+            orderBy: { reported_at: "desc" },
+            take: 5,
+        });
+
+        const dueResidents = residents
+            .map((resident) => {
+                const latestAssessment = resident.assessments[0];
+                const latestPlan = resident.care_plans[0];
+                const fullName = `${resident.first_name} ${resident.last_name}`;
+                if (!latestAssessment || latestAssessment.created_at < assessmentCutoff) {
+                    return {
+                        resident: fullName,
+                        room: this.roomNumber(resident),
+                        task: "Initial or 14-day assessment is due",
+                        status: latestAssessment ? "Overdue" : "Not started",
+                        type: "overdue",
+                    };
+                }
+                if (!resident.resident_care_level_history.length) {
+                    return { resident: fullName, room: this.roomNumber(resident), task: "LOC classification awaiting confirmation", status: "Pending Review", type: "warning" };
+                }
+                if (!latestPlan) {
+                    return { resident: fullName, room: this.roomNumber(resident), task: "Care plan has not been created", status: "Not started", type: "warning" };
+                }
+                if (latestPlan.updated_at < reviewCutoff) {
+                    return { resident: fullName, room: this.roomNumber(resident), task: "90-day care plan reassessment is due", status: "Review Due", type: "warning" };
+                }
+                return { resident: fullName, room: this.roomNumber(resident), task: `Care plan ${latestPlan.status}`, status: "On track", type: "success" };
+            })
+            .slice(0, 8);
+
+        return {
+            success: true,
+            data: {
+                assessmentsDue: residents.filter((resident) => !resident.assessments[0] || resident.assessments[0].created_at < assessmentCutoff).length,
+                locAwaitingConfirm: residents.filter((resident) => resident.assessments.length && !resident.resident_care_level_history.length).length,
+                carePlansToSubmit: residents.filter((resident) => !resident.care_plans[0] || ["Draft", "Rejected"].includes(resident.care_plans[0].status)).length,
+                reassessmentsDue: residents.filter((resident) => resident.care_plans[0]?.updated_at < reviewCutoff).length,
+                assignedResidentsDueSoon: dueResidents,
+                openIncidents: openIncidents.map((incident) => ({
+                    type: incident.incident_type.replaceAll("_", " "),
+                    resident: `${incident.residents.first_name} ${incident.residents.last_name}`,
+                    room: this.roomNumber(incident.residents),
+                    detail: `Reported ${incident.reported_at.toLocaleString()} · ${incident.status.replaceAll("_", " ")}`,
+                    severity: incident.incident_severities.level_name,
+                })),
+            },
+        };
+    }
+
+    async getDonDashboard(_userId: string) {
+        const today = this.startOfToday();
+        const reviewCutoff = new Date(today.getTime() - 90 * DAY_IN_MS);
+        const pendingPlans = await this.prisma.care_plans.findMany({
+            where: { is_deleted: false, status: { in: ["Pending Review", "Approved - Signature Required"] } },
+            include: {
+                residents: { include: { beds: { include: { rooms: true } } } },
+                users: true,
+            },
+            orderBy: { updated_at: "asc" },
+            take: 10,
+        });
+        const [openIncidents, overdueIncidents, totalBeds, activeResidents, reassessmentsDue, staffingConfig, activeLocHistory] = await Promise.all([
+            this.prisma.incidents.count({ where: { status: { not: "CLOSED" } } }),
+            this.prisma.incidents.count({ where: { status: { not: "CLOSED" }, sla_deadline: { lt: new Date() } } }),
+            this.prisma.beds.count(),
+            this.prisma.residents.count({ where: { is_deleted: false, status: "ACTIVE" } }),
+            this.prisma.care_plans.count({ where: { is_deleted: false, updated_at: { lt: reviewCutoff } } }),
+            this.prisma.staffing_configs.findFirst({ orderBy: { created_at: "desc" } }),
+            this.prisma.resident_care_level_history.findMany({
+                where: { end_date: null },
+                include: {
+                    care_levels: {
+                        include: {
+                            care_level_rates: {
+                                where: {
+                                    effective_from: { lte: today },
+                                    OR: [{ effective_to: null }, { effective_to: { gte: today } }],
+                                },
+                                orderBy: { effective_from: "desc" },
+                                take: 1,
+                            },
+                        },
+                    },
+                },
+            }),
+        ]);
+
+        const tierMap = new Map<string, number>();
+        let estimatedDailyRevenue = 0;
+        for (const history of activeLocHistory) {
+            tierMap.set(history.care_levels.level_name, (tierMap.get(history.care_levels.level_name) ?? 0) + 1);
+            estimatedDailyRevenue += Number(history.care_levels.care_level_rates[0]?.daily_rate ?? 0);
         }
-      }
-    };
-  }
+        const occupancyRate = totalBeds ? Number(((activeResidents / totalBeds) * 100).toFixed(1)) : 0;
 
-  async getCnaDashboard(_userId: string) {
-    return {
-      success: true,
-      data: {
-        todaysTasks: { completed: 9, total: 14 },
-        abnormalFlagsReported: 1,
-        assignedResidents: 8,
-        shiftInfo: "Day Shift · Wing B · Rooms 106-124",
-        shiftTime: "7:00 AM - 3:00 PM",
-        upcomingTasks: [
-          { resident: "Susan Wright", room: "114B", task: "Bedside Vitals", due: "08:00 AM", status: "Done" },
-          { resident: "James Porter", room: "210B", task: "Repositioning (2h)", due: "08:30 AM", status: "Done" },
-          { resident: "Robert Hayes", room: "204B", task: "Bathing Assistance", due: "09:15 AM", status: "Missed" },
-          { resident: "David Nguyen", room: "222A", task: "Bedside Vitals — abnormal SpO2 flagged", due: "10:00 AM", status: "Done" },
-          { resident: "Mary Coleman", room: "118A", task: "Ambulation Assist", due: "11:00 AM", status: "Pending" }
-        ]
-      }
-    };
-  }
+        return {
+            success: true,
+            data: {
+                pendingReview: pendingPlans.length,
+                openIncidents,
+                reassessmentsDue,
+                complianceAlerts: overdueIncidents,
+                staffingAlert: staffingConfig
+                    ? `Minimum staffing target: ${staffingConfig.min_hrs_per_resident_day.toString()} hours per resident day; warn below ${staffingConfig.warn_below_percentage}%.`
+                    : "Staffing configuration has not been set.",
+                carePlansPendingReview: pendingPlans.map((plan) => ({
+                    id: plan.id,
+                    resident: `${plan.residents.first_name} ${plan.residents.last_name}`,
+                    room: this.roomNumber(plan.residents),
+                    submittedBy: plan.users ? `${plan.users.firstName} ${plan.users.lastName}` : "Unassigned",
+                    submittedDate: plan.updated_at.toISOString().slice(0, 10),
+                    locTier: "Confirmed LOC",
+                    waiting: `${Math.max(0, Math.floor((Date.now() - plan.updated_at.getTime()) / (60 * 60 * 1000)))}h`,
+                })),
+                censusAndLocMix: {
+                    current: activeResidents,
+                    total: totalBeds,
+                    occupancyRate,
+                    tiers: Array.from(tierMap.entries()).map(([label, count]) => ({ label, count })),
+                },
+                billingSnapshot: {
+                    estDailyRevenue: estimatedDailyRevenue,
+                    estMonthlyRevenue: estimatedDailyRevenue * 30,
+                    pendingAuthorizations: await this.prisma.invoices.count({ where: { status: "DRAFT", is_deleted: false } }),
+                    medicare100DayCapAlerts: 0,
+                },
+            },
+        };
+    }
 
-  async getSummaryDashboard() {
-    return {
-      success: true,
-      data: {
-        totalResidents: 42,
-        totalBeds: 48,
-        openIncidents: 3,
-        pendingAssessments: 6,
-        staffingAlerts: 1
-      }
-    };
-  }
+    async getCnaDashboard(userId: string) {
+        const today = this.startOfToday();
+        const tomorrow = new Date(today.getTime() + DAY_IN_MS);
+        const tasks = await this.prisma.care_tasks.findMany({
+            where: {
+                scheduled_time: { gte: today, lt: tomorrow },
+                OR: [{ assigned_cna_id: userId }, { assigned_cna_id: null }],
+            },
+            include: {
+                care_interventions: {
+                    include: {
+                        care_plans: {
+                            include: { residents: { include: { beds: { include: { rooms: true } } } } },
+                        },
+                    },
+                },
+            },
+            orderBy: { scheduled_time: "asc" },
+        });
+        const shiftAssignment = await this.prisma.shift_assignments.findFirst({
+            where: { user_id: userId, work_date: today },
+            include: { shifts: true },
+        });
+        const residentIds = new Set(tasks.map((task) => task.care_interventions.care_plans.resident_id));
+
+        return {
+            success: true,
+            data: {
+                todaysTasks: { completed: tasks.filter((task) => task.status === "COMPLETED").length, total: tasks.length },
+                abnormalFlagsReported: tasks.filter((task) => task.is_abnormal_flagged).length,
+                assignedResidents: residentIds.size,
+                shiftInfo: shiftAssignment ? `${shiftAssignment.shifts.shift_name} Shift` : "No shift assigned today",
+                shiftTime: shiftAssignment ? `${shiftAssignment.shifts.start_time.toLocaleTimeString()} - ${shiftAssignment.shifts.end_time.toLocaleTimeString()}` : "—",
+                upcomingTasks: tasks.map((task) => {
+                    const resident = task.care_interventions.care_plans.residents;
+                    return {
+                        id: task.id,
+                        resident: `${resident.first_name} ${resident.last_name}`,
+                        room: this.roomNumber(resident),
+                        task: task.task_type,
+                        due: task.scheduled_time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        status: task.status === "COMPLETED" ? "Done" : task.scheduled_time < new Date() ? "Missed" : "Pending",
+                    };
+                }),
+            },
+        };
+    }
+
+    async getSummaryDashboard() {
+        const [totalResidents, totalBeds, openIncidents, pendingAssessments, staffingConfigs] = await Promise.all([
+            this.prisma.residents.count({ where: { is_deleted: false, status: "ACTIVE" } }),
+            this.prisma.beds.count(),
+            this.prisma.incidents.count({ where: { status: { not: "CLOSED" } } }),
+            this.prisma.residents.count({ where: { is_deleted: false, status: "ACTIVE", assessments: { none: {} } } }),
+            this.prisma.staffing_configs.count(),
+        ]);
+        return {
+            success: true,
+            data: {
+                totalResidents,
+                totalBeds,
+                openIncidents,
+                pendingAssessments,
+                staffingAlerts: staffingConfigs ? 0 : 1,
+            },
+        };
+    }
 }

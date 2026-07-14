@@ -1,38 +1,44 @@
-import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module.js";
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
-(BigInt.prototype as any).toJSON = function () {
-  return this.toString();
-};
+Object.defineProperty(BigInt.prototype, "toJSON", {
+    configurable: true,
+    value() {
+        return this.toString();
+    },
+});
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule);
+    const port = Number(process.env.PORT ?? 3000);
+    const allowedOrigins = (process.env.CORS_CLIENT_ORIGIN ?? "http://localhost:3001")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean);
 
-  app.enableCors();
+    app.enableCors({
+        origin: allowedOrigins,
+        credentials: true,
+    });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+    app.useGlobalPipes(
+        new ValidationPipe({
+            whitelist: true,
+            forbidNonWhitelisted: true,
+            transform: true,
+        }),
+    );
 
-  const config = new DocumentBuilder()
-    .setTitle('NHMS API')
-    .setDescription('The Nursing Home Management System API description')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+    const config = new DocumentBuilder().setTitle("NHMS API").setDescription("Nursing Home Management System API").setVersion("1.0").addBearerAuth().build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("api/docs", app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+    await app.listen(port);
 
-  console.log(`[NHMS] Running on: http://localhost:${process.env.PORT ?? 3000}`);
-  console.log(`[NHMS] Swagger Docs: http://localhost:${process.env.PORT ?? 3000}/api/docs`);
+    console.log(`[NHMS] Running on: http://localhost:${port}`);
+    console.log(`[NHMS] Swagger Docs: http://localhost:${port}/api/docs`);
 }
 
 void bootstrap();

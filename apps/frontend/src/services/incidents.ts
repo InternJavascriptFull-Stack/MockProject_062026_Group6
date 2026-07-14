@@ -1,51 +1,53 @@
-import { session } from "../utils/session";
-
-const BASE_URL = "/api/incidents";
-
-const getHeaders = () => {
-  const token = session.getAccessToken();
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
+import { apiClient } from "./apiClient";
 
 export const incidentsService = {
-  async getIncidents() {
-    const res = await fetch(BASE_URL, { headers: getHeaders() });
-    if (!res.ok) throw new Error("Failed to fetch incidents list");
-    return res.json();
-  },
+    async getIncidents() {
+        const { data } = await apiClient.get("/incidents");
+        return data;
+    },
 
-  async getIncidentById(id: string) {
-    const res = await fetch(`${BASE_URL}/${id}`, { headers: getHeaders() });
-    if (!res.ok) throw new Error("Failed to fetch incident details");
-    return res.json();
-  },
+    async getIncidentById(id: string) {
+        const { data } = await apiClient.get(`/incidents/${id}`);
+        return data;
+    },
 
-  async lockChart(id: string, reason: string) {
-    const res = await fetch(`${BASE_URL}/${id}/lock-chart`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify({ reason })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.message || "Failed to lock chart");
-    }
-    return res.json();
-  },
+    async create(payload: Record<string, unknown>) {
+        const { data } = await apiClient.post("/incidents", payload);
+        return data;
+    },
 
-  async unlockChart(id: string, reason: string, passwordConfirm: string) {
-    const res = await fetch(`${BASE_URL}/${id}/unlock-chart`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify({ reason, passwordConfirm })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.message || "Failed to unlock chart");
-    }
-    return res.json();
-  }
+    async updateInvestigation(id: string, payload: Record<string, unknown>) {
+        const { data } = await apiClient.patch(`/incidents/${id}/investigation`, payload);
+        return data;
+    },
+
+    async addProgressNote(id: string, note: string) {
+        const { data } = await apiClient.post(`/incidents/${id}/progress-notes`, { note });
+        return data;
+    },
+
+    async requestDonReview(id: string) {
+        const { data } = await apiClient.post(`/incidents/${id}/request-don-review`);
+        return data;
+    },
+
+    async submitExternalReport(id: string, payload: Record<string, unknown>) {
+        const { data } = await apiClient.post(`/incidents/${id}/submit-external-report`, payload);
+        return data;
+    },
+
+    async resolve(id: string, payload: { resolution: string; followUpPlan?: string }) {
+        const { data } = await apiClient.post(`/incidents/${id}/resolve`, payload);
+        return data;
+    },
+
+    async lockChart(id: string, reason: string) {
+        const { data } = await apiClient.post(`/incidents/${id}/lock-chart`, { reason });
+        return data;
+    },
+
+    async unlockChart(id: string, reason: string, passwordConfirm: string) {
+        const { data } = await apiClient.post(`/incidents/${id}/unlock-chart`, { reason, passwordConfirm });
+        return data;
+    },
 };

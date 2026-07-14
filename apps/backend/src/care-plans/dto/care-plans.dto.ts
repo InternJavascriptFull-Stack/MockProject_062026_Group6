@@ -1,26 +1,48 @@
-import { Allow } from 'class-validator';
+import { Allow, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, MinLength } from "class-validator";
 
 export class CreateCarePlanDto {
-  @Allow() residentId!: string;
-  @Allow() goals!: any[];
-  @Allow() interventions!: any[];
-  @Allow() status?: string;
+    @IsString()
+    @IsNotEmpty()
+    residentId!: string;
+
+    @Allow()
+    goals!: { description: string; status?: string }[];
+
+    @Allow()
+    interventions!: { description: string; assignedRole: string }[];
+
+    @IsString()
+    @IsOptional()
+    status?: string;
 }
 
 export class UpdateCarePlanDto {
-  @Allow() status!: string;
-  @Allow() significantChangeFlag!: boolean;
+    @IsString()
+    @IsOptional()
+    status?: string;
+
+    @IsBoolean()
+    @IsOptional()
+    significantChangeFlag?: boolean;
 }
 
 export class DonReviewDto {
-  @Allow() status!: string;
-  @Allow() notes!: string;
+    @IsIn(["APPROVED", "REJECTED"])
+    status!: "APPROVED" | "REJECTED";
+
+    @IsString()
+    @IsOptional()
+    notes?: string;
 }
 
 export class ESignDto {
-  @Allow() signatureToken!: string;
+    @IsString()
+    @MinLength(1)
+    password!: string;
 }
 
 export class IdtAckDto {
-  @Allow() notes!: string;
+    @IsString()
+    @IsOptional()
+    notes?: string;
 }

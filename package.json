@@ -14,7 +14,10 @@
         "build:all": "npm run build --workspaces --if-present",
         "lint": "npm run lint --workspaces --if-present",
         "lint:fix": "npm run lint:fix --workspaces --if-present",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "db:generate": "prisma generate --schema apps/backend/prisma/schema.prisma",
+        "db:push": "prisma db push --schema apps/backend/prisma/schema.prisma",
+        "db:seed": "prisma db seed --schema apps/backend/prisma/schema.prisma"
     },
     "engines": {
         "node": ">=24.0.0",
@@ -31,5 +34,8 @@
     },
     "dependencies": {
         "ajv": "^8.20.0"
+    },
+    "prisma": {
+        "seed": "node --loader ts-node/esm apps/backend/prisma/seed.ts"
     }
 }

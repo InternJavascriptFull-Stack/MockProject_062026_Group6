@@ -1,37 +1,56 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { Login } from "./pages/auth/Login";
-import { Activation } from "./pages/auth/Activation";
-import { TwoStepVerification } from "./pages/auth/TwoStepVerification";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { AppLayout } from "./layouts/appLayout";
-
-import UserList from "./pages/users/UserList";
-import UserForm from "./pages/users/UserForm";
-import RoleMatrix from "./pages/roles/RoleMatrix";
-import DashboardRouter from "./pages/dashboard/DashboardRouter";
 import DemoSeeder from "./pages/admin/DemoSeeder";
-import IncidentDetail from "./pages/residents/IncidentDetail";
-import IncidentList from "./pages/residents/IncidentList";
-import ChartLockConfirmation from "./pages/residents/ChartLockConfirmation";
-import { DoctorsSchedulePage } from "./pages/schedule/doctorsSchedulePage";
-import { EmarPage } from "./pages/emar/emarPage";
-import { CarePlanPage } from "./pages/carePlan/carePlanPage";
-import IncidentSeverityLevels from "./pages/incidentSeverity/IncidentSeverityLevels";
-import SlaConfiguration from "./pages/slaConfig/SlaConfiguration";
-import EquipmentInventory from "./pages/inventory/EquipmentInventory";
-import EquipmentForm from "./pages/inventory/EquipmentForm";
-import FacilitySettingsPage from "./pages/facilities/FacilitySettingsPage";
+import AdmissionFormPage from "./pages/admissions/AdmissionFormPage";
+import AssessmentHistoryPage from "./pages/assessments/AssessmentHistoryPage";
+import InitialAssessmentPage from "./pages/assessments/InitialAssessmentPage";
+import LocClassificationPage from "./pages/assessments/LocClassificationPage";
+import LocHistoryPage from "./pages/assessments/LocHistoryPage";
+import ReassessmentPage from "./pages/assessments/ReassessmentPage";
+import { Activation } from "./pages/auth/Activation";
+import { Login } from "./pages/auth/Login";
+import { TwoStepVerification } from "./pages/auth/TwoStepVerification";
+import CostBillingPanelPage from "./pages/billing/CostBillingPanelPage";
 import LocRateTablePage from "./pages/careLevels/LocRateTablePage";
-import StaffingRatioPage from "./pages/staffingRatios/StaffingRatioPage";
-import { ResidentListPage } from "./pages/residents/residentListPage";
-import { ResidentFormPage } from "./pages/residents/residentFormPage";
-import { ResidentProfileDetailPage } from "./pages/residents/residentProfileDetailPage";
-import { ResidentReceptionPage } from "./pages/residents/residentReceptionPage";
 import { CarePlanListPage } from "./pages/carePlan/carePlanListPage";
+import { CarePlanPage } from "./pages/carePlan/carePlanPage";
 import { CreateCarePlanPage } from "./pages/carePlan/createCarePlanPage";
 import { DonReviewPage } from "./pages/carePlan/donReviewPage";
 import { IdtAcknowledgmentPage } from "./pages/carePlan/idtAcknowledgmentPage";
+import DashboardRouter from "./pages/dashboard/DashboardRouter";
+import { EmarPage } from "./pages/emar/emarPage";
+import FacilitySettingsPage from "./pages/facilities/FacilitySettingsPage";
+import IncidentSeverityLevels from "./pages/incidentSeverity/IncidentSeverityLevels";
+import EquipmentForm from "./pages/inventory/EquipmentForm";
+import EquipmentInventory from "./pages/inventory/EquipmentInventory";
+import ChartLockConfirmation from "./pages/residents/ChartLockConfirmation";
+import ChartUnlockPage from "./pages/residents/ChartUnlockPage";
+import ExternalReportPage from "./pages/residents/ExternalReportPage";
+import IncidentDetail from "./pages/residents/IncidentDetail";
+import IncidentList from "./pages/residents/IncidentList";
+import ReportIncidentPage from "./pages/residents/ReportIncidentPage";
+import { ResidentFormPage } from "./pages/residents/residentFormPage";
+import { ResidentListPage } from "./pages/residents/residentListPage";
+import { ResidentProfileDetailPage } from "./pages/residents/residentProfileDetailPage";
+import { ResidentReceptionPage } from "./pages/residents/residentReceptionPage";
+import RoleMatrix from "./pages/roles/RoleMatrix";
+import { DoctorsSchedulePage } from "./pages/schedule/doctorsSchedulePage";
+import SlaConfiguration from "./pages/slaConfig/SlaConfiguration";
+import StaffingRatioPage from "./pages/staffingRatios/StaffingRatioPage";
+import BedsideVitalsPage from "./pages/tasks/BedsideVitalsPage";
+import DailyTaskListPage from "./pages/tasks/DailyTaskListPage";
+import UserForm from "./pages/users/UserForm";
+import UserList from "./pages/users/UserList";
+
+function AdminPage({ children }: { children: React.ReactNode }) {
+    return (
+        <ProtectedRoute allowedRoles={["System Admin"]}>
+            <AdminLayout>{children}</AdminLayout>
+        </ProtectedRoute>
+    );
+}
 
 function App() {
     return (
@@ -39,86 +58,20 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/activate" element={<Activation />} />
             <Route path="/verify-otp" element={<TwoStepVerification />} />
-            <Route
-                path="/admin/users"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <UserList />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/roles"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <RoleMatrix />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/data"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <DemoSeeder />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/users/create"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <UserForm />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/users/:id/edit"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <UserForm />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/facility"
-                element={
-                    <ProtectedRoute allowedRoles={["System Admin"]}>
-                        <AdminLayout>
-                            <FacilitySettingsPage />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/loc-rates"
-                element={
-                    <ProtectedRoute allowedRoles={["System Admin"]}>
-                        <AdminLayout>
-                            <LocRateTablePage />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/staffing"
-                element={
-                    <ProtectedRoute allowedRoles={["System Admin"]}>
-                        <AdminLayout>
-                            <StaffingRatioPage />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
+
+            <Route path="/admin/users" element={<AdminPage><UserList /></AdminPage>} />
+            <Route path="/admin/users/create" element={<AdminPage><UserForm /></AdminPage>} />
+            <Route path="/admin/users/:id/edit" element={<AdminPage><UserForm /></AdminPage>} />
+            <Route path="/admin/roles" element={<AdminPage><RoleMatrix /></AdminPage>} />
+            <Route path="/admin/data" element={<AdminPage><DemoSeeder /></AdminPage>} />
+            <Route path="/admin/facility" element={<AdminPage><FacilitySettingsPage /></AdminPage>} />
+            <Route path="/admin/loc-rates" element={<AdminPage><LocRateTablePage /></AdminPage>} />
+            <Route path="/admin/staffing" element={<AdminPage><StaffingRatioPage /></AdminPage>} />
+            <Route path="/admin/incident-severity" element={<AdminPage><IncidentSeverityLevels /></AdminPage>} />
+            <Route path="/admin/sla-config" element={<AdminPage><SlaConfiguration /></AdminPage>} />
+            <Route path="/admin/equipment" element={<AdminPage><EquipmentInventory /></AdminPage>} />
+            <Route path="/admin/equipment/add" element={<AdminPage><EquipmentForm /></AdminPage>} />
+            <Route path="/admin/equipment/:id/edit" element={<AdminPage><EquipmentForm /></AdminPage>} />
 
             <Route
                 path="/dashboard"
@@ -130,17 +83,7 @@ function App() {
                     </ProtectedRoute>
                 }
             />
-
-            <Route
-                path="/dashboard/admin"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <DashboardRouter />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
+            <Route path="/dashboard/admin" element={<Navigate to="/dashboard" replace />} />
 
             <Route
                 element={
@@ -151,32 +94,43 @@ function App() {
             >
                 <Route path="/residents" element={<ResidentListPage />} />
                 <Route path="/residents/create" element={<ResidentFormPage />} />
+                <Route path="/residents/reception" element={<ResidentReceptionPage />} />
                 <Route path="/residents/:id" element={<ResidentProfileDetailPage />} />
                 <Route path="/residents/:id/edit" element={<ResidentFormPage />} />
+                <Route path="/residents/:residentId/loc-classification" element={<LocClassificationPage />} />
+                <Route path="/residents/:residentId/loc-history" element={<LocHistoryPage />} />
+
                 <Route path="/admissions/pre-screening" element={<ResidentReceptionPage />} />
-                <Route path="/residents/reception" element={<ResidentReceptionPage />} />
-                <Route path="/doctor-schedule" element={<DoctorsSchedulePage />} />
-                <Route path="/emar" element={<EmarPage />} />
+                <Route path="/admissions/new" element={<AdmissionFormPage />} />
+                <Route path="/assessments/new" element={<InitialAssessmentPage />} />
+                <Route path="/assessments/history" element={<AssessmentHistoryPage />} />
+                <Route path="/reassessments/new" element={<ReassessmentPage />} />
+
                 <Route path="/care-plans" element={<CarePlanListPage />} />
                 <Route path="/care-plans/new" element={<CreateCarePlanPage />} />
                 <Route path="/care-plans/:id" element={<CarePlanPage />} />
                 <Route path="/care-plans/:id/review" element={<DonReviewPage />} />
                 <Route path="/care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />
+
+                <Route path="/care-tasks/today" element={<DailyTaskListPage />} />
+                <Route path="/care-tasks/:taskId/vitals" element={<BedsideVitalsPage />} />
+                <Route path="/billing/cost-panel" element={<CostBillingPanelPage />} />
+
+                <Route path="/incidents/report" element={<ReportIncidentPage />} />
                 <Route path="/incidents" element={<IncidentList />} />
                 <Route path="/incidents/:id" element={<IncidentDetail />} />
                 <Route path="/incidents/:id/lock-confirm" element={<ChartLockConfirmation />} />
+                <Route path="/incidents/:id/external-report" element={<ExternalReportPage />} />
+                <Route path="/incidents/:id/unlock" element={<ChartUnlockPage />} />
+
+                <Route path="/doctor-schedule" element={<DoctorsSchedulePage />} />
+                <Route path="/emar" element={<EmarPage />} />
             </Route>
 
-      <Route path="/admin/incident-severity" element={<ProtectedRoute><AdminLayout><IncidentSeverityLevels /></AdminLayout></ProtectedRoute>} />
-      <Route path="/admin/sla-config" element={<ProtectedRoute><AdminLayout><SlaConfiguration /></AdminLayout></ProtectedRoute>} />
-      <Route path="/admin/equipment" element={<ProtectedRoute><AdminLayout><EquipmentInventory /></AdminLayout></ProtectedRoute>} />
-      <Route path="/admin/equipment/add" element={<ProtectedRoute><AdminLayout><EquipmentForm /></AdminLayout></ProtectedRoute>} />
-      <Route path="/admin/equipment/:id/edit" element={<ProtectedRoute><AdminLayout><EquipmentForm /></AdminLayout></ProtectedRoute>} />
-
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
-  );
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+    );
 }
 
 export default App;

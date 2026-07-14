@@ -403,6 +403,7 @@ model contacts {
 model incident_severities {
   id                 BigInt        @id(map: "PK__incident__3213E83F9833F0D0") @default(autoincrement())
   level_name         String        @db.NVarChar(50)
+  description        String?       @db.NVarChar(500)
   chart_lock_trigger Boolean       @default(false, map: "DF__incident___chart__2CBDA3B5")
   incidents          incidents[]
   sla_configs        sla_configs[]
@@ -706,8 +707,10 @@ model shifts {
 
 model sla_configs {
   id                  BigInt              @id(map: "PK__sla_conf__3213E83F4EFF83C3") @default(autoincrement())
-  sla_window_hrs      Int
-  severity_id         BigInt
+  sla_window_hrs            Int
+  external_report_required Boolean @default(true)
+  regulatory_body           String? @db.NVarChar(200)
+  severity_id               BigInt
   incident_severities incident_severities @relation(fields: [severity_id], references: [id], onUpdate: NoAction, map: "FK__sla_confi__sever__2F9A1060")
 }
 

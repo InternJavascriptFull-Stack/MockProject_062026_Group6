@@ -100,7 +100,7 @@ export class AuthService {
     // DO NOT issue JWT. DO NOT update last_login_at here.
     // ══════════════════════════════════════════════════════════════════════════
     async login(dto: LoginDto) {
-        const identifier = dto.identifier!;
+        const identifier = dto.identifier;
         const { password } = dto;
 
         const isEmail = identifier.includes("@");

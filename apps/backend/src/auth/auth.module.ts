@@ -8,9 +8,9 @@ import { RefreshTokenGuard } from "./guards/refresh-token.guard.js";
 import { MailModule } from "../mail/mail.module.js";
 
 @Module({
-  imports: [JwtModule.register({ global: true }), MailModule],
-  controllers: [AuthController],
-  providers: [AuthService, AccessTokenGuard, RefreshTokenGuard],
-  exports: [AuthService, AccessTokenGuard, RefreshTokenGuard],
+    imports: [JwtModule.register({ global: true }), MailModule],
+    controllers: [AuthController],
+    providers: [AuthService, AccessTokenGuard, RefreshTokenGuard],
+    exports: [AuthService, AccessTokenGuard, RefreshTokenGuard],
 })
 export class AuthModule {}

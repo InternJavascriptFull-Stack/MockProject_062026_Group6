@@ -31,6 +31,10 @@ export interface CareLevel {
 }
 
 export const careLevelsService = {
+    async getAll(): Promise<CareLevel[]> {
+        return this.getCareLevels();
+    },
+
     async getCareLevels(): Promise<CareLevel[]> {
         const response = await fetch(API_ROUTES.CARE_LEVELS, {
             headers: getHeaders(),

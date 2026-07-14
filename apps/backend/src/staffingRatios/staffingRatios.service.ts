@@ -77,7 +77,7 @@ export class StaffingRatiosService {
             throw new NotFoundException('Staffing ratio configuration not found. Please run the Prisma seed first.');
         }
 
-        const shiftBreakdown = this.getShiftBreakdown(staffingConfig.shift_breakdown_json);
+        const shiftBreakdown = this.getShiftBreakdown((staffingConfig as any).shift_breakdown_json);
         const shiftTotal = shiftBreakdown.reduce(
             (total, shift) => total + shift.requiredCnaHours + shift.requiredNurseHours,
             0,
@@ -114,7 +114,7 @@ export class StaffingRatiosService {
                 min_hrs_per_resident_day: dto.minHrsPerResidentDay,
                 warn_below_percentage: dto.warnBelowPercentage ?? 90,
                 shift_breakdown_json: JSON.stringify(dto.shifts ?? STAFFING_SHIFT_BREAKDOWN),
-            },
+            } as any,
         });
 
         return this.serializeBigInt(created);
@@ -137,7 +137,7 @@ export class StaffingRatiosService {
                 warn_below_percentage: dto.warnBelowPercentage,
                 shift_breakdown_json: dto.shifts ? JSON.stringify(dto.shifts) : undefined,
                 facility_id: dto.facilityId,
-            },
+            } as any,
         });
 
         return this.getStaffingRatios();
