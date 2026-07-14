@@ -137,6 +137,24 @@ async function main() {
     },
   });
 
+  // Wuan admin
+  const wuanHashedPassword = await bcrypt.hash("123123", BCRYPT_ROUNDS);
+  await prisma.user.upsert({
+    where: { email: "wuan1604@gmail.com" },
+    update: {},
+    create: {
+      employeeCode: "EMP_WUAN",
+      email: "wuan1604@gmail.com",
+      passwordHash: wuanHashedPassword,
+      firstName: "Wuan",
+      lastName: "Admin",
+      phoneNumber: "+15559998888",
+      status: "ACTIVE",
+      mfaEnabled: true,
+      roleId: dbRoles["System Admin"].id,
+    },
+  });
+
   // Active nurse
   await prisma.user.upsert({
     where: { email: "j.rivera@facility.org" },
@@ -193,107 +211,107 @@ async function main() {
   });
 
   for (const item of roomSeed) {
-    const room = await prisma.room.upsert({
+    const room = await prisma.rooms.upsert({
       where: {
-        facilityId_roomNumber: {
-          facilityId: facility.id,
-          roomNumber: item.roomNumber,
+        facility_id_room_number: {
+          facility_id: facility.id,
+          room_number: item.roomNumber,
         },
       },
       update: {
-        roomType: item.roomType,
-        isDeleted: false,
+        room_type: item.roomType,
+        is_deleted: false,
       },
       create: {
-        roomNumber: item.roomNumber,
-        roomType: item.roomType,
-        facilityId: facility.id,
+        room_number: item.roomNumber,
+        room_type: item.roomType,
+        facility_id: facility.id,
       },
     });
 
-    await prisma.bed.upsert({
+    await prisma.beds.upsert({
       where: {
-        roomId_bedNumber: {
-          roomId: room.id,
-          bedNumber: item.bedNumber,
+        room_id_bed_number: {
+          room_id: room.id,
+          bed_number: item.bedNumber,
         },
       },
       update: { status: item.status },
       create: {
-        bedNumber: item.bedNumber,
+        bed_number: item.bedNumber,
         status: item.status,
-        roomId: room.id,
+        room_id: room.id,
       },
     });
   }
 
   for (const item of careLevelSeed) {
-    const careLevel = await prisma.careLevel.upsert({
-      where: { levelCode: item.levelCode },
+    const careLevel = await prisma.care_levels.upsert({
+      where: { level_code: item.levelCode },
       update: {
-        levelName: item.levelName,
-        isDeleted: false,
+        level_name: item.levelName,
+        is_deleted: false,
       },
       create: {
-        levelCode: item.levelCode,
-        levelName: item.levelName,
+        level_code: item.levelCode,
+        level_name: item.levelName,
       },
     });
 
-    const currentRate = await prisma.careLevelRate.findFirst({
+    const currentRate = await prisma.care_level_rates.findFirst({
       where: {
-        careLevelId: careLevel.id,
-        facilityId: facility.id,
-        effectiveTo: null,
+        care_level_id: careLevel.id,
+        facility_id: facility.id,
+        effective_to: null,
       },
     });
 
     if (currentRate) {
-      await prisma.careLevelRate.update({
+      await prisma.care_level_rates.update({
         where: { id: currentRate.id },
         data: {
-          dailyRate: item.dailyRate,
-          effectiveFrom: toDate("2026-01-01"),
+          daily_rate: item.dailyRate,
+          effective_from: toDate("2026-01-01"),
         },
       });
     } else {
-      await prisma.careLevelRate.create({
+      await prisma.care_level_rates.create({
         data: {
-          careLevelId: careLevel.id,
-          facilityId: facility.id,
-          dailyRate: item.dailyRate,
-          effectiveFrom: toDate("2026-01-01"),
+          care_level_id: careLevel.id,
+          facility_id: facility.id,
+          daily_rate: item.dailyRate,
+          effective_from: toDate("2026-01-01"),
         },
       });
     }
   }
 
   for (const item of roomRateSeed) {
-    await prisma.facilityRoomRate.upsert({
+    await prisma.facility_room_rates.upsert({
       where: {
-        facilityId_roomType: {
-          facilityId: facility.id,
-          roomType: item.roomType,
+        facility_id_room_type: {
+          facility_id: facility.id,
+          room_type: item.roomType,
         },
       },
       update: {
-        dailyRate: item.dailyRate,
-        effectiveFrom: toDate(item.effectiveFrom),
+        daily_rate: item.dailyRate,
+        effective_from: toDate(item.effectiveFrom),
       },
       create: {
-        facilityId: facility.id,
-        roomType: item.roomType,
-        dailyRate: item.dailyRate,
-        effectiveFrom: toDate(item.effectiveFrom),
+        facility_id: facility.id,
+        room_type: item.roomType,
+        daily_rate: item.dailyRate,
+        effective_from: toDate(item.effectiveFrom),
       },
     });
   }
 
   for (const item of clinicalCapabilitySeed) {
-    await prisma.facilityClinicalCapability.upsert({
+    await prisma.facility_clinical_capabilities.upsert({
       where: {
-        facilityId_capability: {
-          facilityId: facility.id,
+        facility_id_capability: {
+          facility_id: facility.id,
           capability: item.capability,
         },
       },
@@ -302,7 +320,7 @@ async function main() {
         note: "note" in item ? item.note : null,
       },
       create: {
-        facilityId: facility.id,
+        facility_id: facility.id,
         capability: item.capability,
         supported: item.supported,
         note: "note" in item ? item.note : null,
@@ -310,8 +328,8 @@ async function main() {
     });
   }
 
-  const staffingConfig = await prisma.staffingConfig.findFirst({
-    where: { facilityId: facility.id },
+  const staffingConfig = await prisma.staffing_configs.findFirst({
+    where: { facility_id: facility.id },
   });
   const shiftBreakdownJson = JSON.stringify([
     {
@@ -338,21 +356,21 @@ async function main() {
   ]);
 
   if (staffingConfig) {
-    await prisma.staffingConfig.update({
+    await prisma.staffing_configs.update({
       where: { id: staffingConfig.id },
       data: {
-        minHrsPerResidentDay: 3.5,
-        warnBelowPercentage: 90,
-        shiftBreakdownJson,
+        min_hrs_per_resident_day: 3.5,
+        warn_below_percentage: 90,
+        shift_breakdown_json: shiftBreakdownJson,
       },
     });
   } else {
-    await prisma.staffingConfig.create({
+    await prisma.staffing_configs.create({
       data: {
-        facilityId: facility.id,
-        minHrsPerResidentDay: 3.5,
-        warnBelowPercentage: 90,
-        shiftBreakdownJson,
+        facility_id: facility.id,
+        min_hrs_per_resident_day: 3.5,
+        warn_below_percentage: 90,
+        shift_breakdown_json: shiftBreakdownJson,
       },
     });
   }

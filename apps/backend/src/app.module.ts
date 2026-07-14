@@ -8,6 +8,9 @@ import { RolesModule } from './roles/roles.module.js';
 import { FacilitiesModule } from './facilities/facilities.module.js';
 import { CareLevelsModule } from './careLevels/careLevels.module.js';
 import { StaffingRatiosModule } from './staffingRatios/staffingRatios.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
+import { IncidentSeveritiesModule } from './incident-severities/incident-severities.module.js';
+import { SlaConfigurationsModule } from './sla-configurations/sla-configurations.module.js';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { StaffingRatiosModule } from './staffingRatios/staffingRatios.module.js'
     FacilitiesModule,
     CareLevelsModule,
     StaffingRatiosModule,
+    DashboardModule,
+    IncidentSeveritiesModule,
+    SlaConfigurationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

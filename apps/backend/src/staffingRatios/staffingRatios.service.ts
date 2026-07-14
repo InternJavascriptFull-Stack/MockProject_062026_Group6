@@ -68,8 +68,8 @@ export class StaffingRatiosService {
 
     async getStaffingRatios() {
         const facility = await this.getDefaultFacility();
-        const staffingConfig = await this.prisma.staffingConfig.findFirst({
-            where: { facilityId: facility.id },
+        const staffingConfig = await this.prisma.staffing_configs.findFirst({
+            where: { facility_id: facility.id },
             orderBy: { id: 'desc' },
         });
 
@@ -77,13 +77,13 @@ export class StaffingRatiosService {
             throw new NotFoundException('Staffing ratio configuration not found. Please run the Prisma seed first.');
         }
 
-        const shiftBreakdown = this.getShiftBreakdown(staffingConfig.shiftBreakdownJson);
+        const shiftBreakdown = this.getShiftBreakdown(staffingConfig.shift_breakdown_json);
         const shiftTotal = shiftBreakdown.reduce(
             (total, shift) => total + shift.requiredCnaHours + shift.requiredNurseHours,
             0,
         );
         const scheduledPerResident = DEFAULT_SCHEDULED_DIRECT_CARE_HOURS / DEFAULT_CENSUS;
-        const minimumHours = this.decimalToNumber(staffingConfig.minHrsPerResidentDay);
+        const minimumHours = this.decimalToNumber(staffingConfig.min_hrs_per_resident_day);
 
         return this.serializeBigInt({
             id: staffingConfig.id,
@@ -91,7 +91,7 @@ export class StaffingRatiosService {
             targetState: facility.targetState,
             targetStateName: this.getStateName(facility.targetState),
             minHrsPerResidentDay: minimumHours,
-            warnBelowPercentage: staffingConfig.warnBelowPercentage,
+            warnBelowPercentage: staffingConfig.warn_below_percentage,
             regulationReference: 'BR-01 (CA)',
             shifts: shiftBreakdown.map((shift) => ({
                 ...shift,
@@ -108,12 +108,12 @@ export class StaffingRatiosService {
 
     async createStaffingRatio(dto: StaffingRatioDto) {
         const facility = await this.getDefaultFacility();
-        const created = await this.prisma.staffingConfig.create({
+        const created = await this.prisma.staffing_configs.create({
             data: {
-                facilityId: dto.facilityId ? BigInt(dto.facilityId) : facility.id,
-                minHrsPerResidentDay: dto.minHrsPerResidentDay,
-                warnBelowPercentage: dto.warnBelowPercentage ?? 90,
-                shiftBreakdownJson: JSON.stringify(dto.shifts ?? STAFFING_SHIFT_BREAKDOWN),
+                facility_id: dto.facilityId ?? facility.id,
+                min_hrs_per_resident_day: dto.minHrsPerResidentDay,
+                warn_below_percentage: dto.warnBelowPercentage ?? 90,
+                shift_breakdown_json: JSON.stringify(dto.shifts ?? STAFFING_SHIFT_BREAKDOWN),
             },
         });
 
@@ -122,7 +122,7 @@ export class StaffingRatiosService {
 
     async updateStaffingRatio(id: string, dto: StaffingRatioDto) {
         const staffingConfigId = BigInt(id);
-        const staffingConfig = await this.prisma.staffingConfig.findUnique({
+        const staffingConfig = await this.prisma.staffing_configs.findUnique({
             where: { id: staffingConfigId },
         });
 
@@ -130,13 +130,13 @@ export class StaffingRatiosService {
             throw new NotFoundException(`Staffing ratio with ID ${id} not found.`);
         }
 
-        await this.prisma.staffingConfig.update({
+        await this.prisma.staffing_configs.update({
             where: { id: staffingConfigId },
             data: {
-                minHrsPerResidentDay: dto.minHrsPerResidentDay,
-                warnBelowPercentage: dto.warnBelowPercentage,
-                shiftBreakdownJson: dto.shifts ? JSON.stringify(dto.shifts) : undefined,
-                facilityId: dto.facilityId ? BigInt(dto.facilityId) : undefined,
+                min_hrs_per_resident_day: dto.minHrsPerResidentDay,
+                warn_below_percentage: dto.warnBelowPercentage,
+                shift_breakdown_json: dto.shifts ? JSON.stringify(dto.shifts) : undefined,
+                facility_id: dto.facilityId,
             },
         });
 

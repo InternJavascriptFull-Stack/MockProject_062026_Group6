@@ -1,9 +1,9 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
+  useEffect,
   type ComponentProps,
   type ReactNode,
 } from "react";
@@ -16,30 +16,27 @@ type SelectContextValue = {
   open: boolean;
   setOpen: (open: boolean) => void;
   setSelected: (value: string, label: ReactNode) => void;
+  setLabel: (label: ReactNode) => void;
 };
 
 const SelectContext = createContext<SelectContextValue | null>(null);
 
 export function Select({
-  defaultValue = "",
   value: controlledValue,
+  defaultValue = "",
   onValueChange,
   children,
 }: {
-  defaultValue?: string;
   value?: string;
+  defaultValue?: string;
   onValueChange?: (value: string) => void;
   children: ReactNode;
 }) {
-  const [value, setValue] = useState(defaultValue);
+  const [internalValue, setInternalValue] = useState(defaultValue);
   const [label, setLabel] = useState<ReactNode>(null);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (controlledValue !== undefined) {
-      setValue(controlledValue);
-    }
-  }, [controlledValue]);
+  
+  const value = controlledValue !== undefined ? controlledValue : internalValue;
 
   const contextValue = useMemo(
     () => ({
@@ -47,8 +44,9 @@ export function Select({
       label,
       open,
       setOpen,
+      setLabel,
       setSelected: (nextValue: string, nextLabel: ReactNode) => {
-        setValue(nextValue);
+        setInternalValue(nextValue);
         setLabel(nextLabel);
         setOpen(false);
         onValueChange?.(nextValue);
@@ -93,7 +91,11 @@ export function SelectContent({ className, children, ...props }: ComponentProps<
   const context = useContext(SelectContext);
 
   if (!context?.open) {
-    return null;
+    return (
+      <div className="hidden">
+        {children}
+      </div>
+    );
   }
 
   return (
@@ -111,6 +113,12 @@ export function SelectContent({ className, children, ...props }: ComponentProps<
 
 export function SelectItem({ value, children, className, ...props }: ComponentProps<"button"> & { value: string }) {
   const context = useContext(SelectContext);
+
+  useEffect(() => {
+    if (context?.value === value && context.label !== children) {
+      context.setLabel(children);
+    }
+  }, [context?.value, value, children, context?.label, context?.setLabel]);
 
   return (
     <button

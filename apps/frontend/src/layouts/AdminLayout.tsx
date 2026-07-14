@@ -26,6 +26,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [user, setUser] = useState<User | null>(session.getUser());
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
+
+  const toggleDropdown = (name: string) => {
+    setOpenDropdowns((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
 
   useEffect(() => {
     authService.getMe().then((res) => {
@@ -46,9 +51,30 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const navGroups = [
+  const navGroups: Array<{
+    label?: string;
+    items: Array<{
+      name: string;
+      path?: string;
+      icon: any;
+      subItems?: Array<{ name: string; path: string }>;
+    }>;
+  }> = [
     {
-      items: [{ name: "Dashboard", path: "/dashboard/admin", icon: Home }],
+      items: [
+        { name: "Dashboard", path: "/dashboard/admin", icon: Home },
+        { 
+          name: "Modules", 
+          icon: Box, 
+          subItems: [
+            { name: "Resident Management", path: "/residents" },
+            { name: "Resident Reception", path: "/residents/reception" },
+            { name: "Doctor Schedule", path: "/doctor-schedule" },
+            { name: "eMAR Medicine", path: "/emar" },
+            { name: "Care Plan", path: "/care-plan" },
+          ]
+        }
+      ],
     },
     {
       label: "USER & ROLE MANAGEMENT",
@@ -108,11 +134,56 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   </h3>
                 )}
                 {group.items.map((item) => {
-                  const isActive = location.pathname.startsWith(item.path);
+                  if (item.subItems) {
+                    const isOpen = openDropdowns[item.name] || false;
+                    const hasActiveSub = item.subItems.some((sub: any) => location.pathname.startsWith(sub.path));
+                    
+                    return (
+                      <div key={item.name} className="flex flex-col">
+                        <button
+                          onClick={() => toggleDropdown(item.name)}
+                          className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                            hasActiveSub
+                              ? "bg-blue-50 text-blue-600"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <item.icon className={`h-4 w-4 ${hasActiveSub ? "text-blue-600" : "text-slate-400"}`} />
+                            {item.name}
+                          </div>
+                          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        
+                        {isOpen && (
+                          <div className="mt-1 flex flex-col gap-1 pl-10">
+                            {item.subItems.map((sub: any) => {
+                              const isSubActive = location.pathname.startsWith(sub.path);
+                              return (
+                                <Link
+                                  key={sub.name}
+                                  to={sub.path}
+                                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                                    isSubActive
+                                      ? "text-blue-600 bg-blue-50"
+                                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {sub.name}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const isActive = item.path ? location.pathname.startsWith(item.path) : false;
                   return (
                     <Link
                       key={item.name}
-                      to={item.path}
+                      to={item.path!}
                       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-blue-50 text-blue-600"

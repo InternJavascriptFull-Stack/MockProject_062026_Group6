@@ -43,16 +43,16 @@ export class CareLevelsService {
 
     async getCareLevels() {
         const facility = await this.getDefaultFacility();
-        const careLevels = await this.prisma.careLevel.findMany({
+        const careLevels = await this.prisma.care_levels.findMany({
             where: {
-                isDeleted: false,
-                levelCode: { in: Object.keys(CARE_LEVEL_SCORE_RANGES) },
+                is_deleted: false,
+                level_code: { in: Object.keys(CARE_LEVEL_SCORE_RANGES) },
             },
             include: {
-                careLevelRates: {
+                care_level_rates: {
                     where: {
-                        facilityId: facility.id,
-                        effectiveTo: null,
+                        facility_id: facility.id,
+                        effective_to: null,
                     },
                 },
             },
@@ -60,20 +60,20 @@ export class CareLevelsService {
         });
 
         const result = careLevels.map((careLevel) => {
-            const scoreRange = CARE_LEVEL_SCORE_RANGES[careLevel.levelCode] ?? {
+            const scoreRange = CARE_LEVEL_SCORE_RANGES[careLevel.level_code] ?? {
                 scoreMin: 0,
                 scoreMax: 0,
             };
-            const currentRate = careLevel.careLevelRates[0];
+            const currentRate = careLevel.care_level_rates[0];
 
             return {
                 id: careLevel.id.toString(),
-                levelCode: careLevel.levelCode,
-                levelName: careLevel.levelName,
+                levelCode: careLevel.level_code,
+                levelName: careLevel.level_name,
                 scoreMin: scoreRange.scoreMin,
                 scoreMax: scoreRange.scoreMax,
-                dailyRate: currentRate ? this.decimalToNumber(currentRate.dailyRate) : 0,
-                effectiveFrom: currentRate ? this.formatDate(currentRate.effectiveFrom) : null,
+                dailyRate: currentRate ? this.decimalToNumber(currentRate.daily_rate) : 0,
+                effectiveFrom: currentRate ? this.formatDate(currentRate.effective_from) : null,
                 lastUpdatedBy: DEFAULT_LAST_UPDATED_BY,
             };
         });
@@ -84,7 +84,7 @@ export class CareLevelsService {
     async updateCareLevel(id: string, dto: UpdateCareLevelDto) {
         const facility = await this.getDefaultFacility();
         const careLevelId = BigInt(id);
-        const careLevel = await this.prisma.careLevel.findUnique({
+        const careLevel = await this.prisma.care_levels.findUnique({
             where: { id: careLevelId },
         });
 
@@ -92,29 +92,29 @@ export class CareLevelsService {
             throw new NotFoundException(`Care level with ID ${id} not found.`);
         }
 
-        const currentRate = await this.prisma.careLevelRate.findFirst({
+        const currentRate = await this.prisma.care_level_rates.findFirst({
             where: {
-                careLevelId,
-                facilityId: facility.id,
-                effectiveTo: null,
+                care_level_id: careLevelId,
+                facility_id: facility.id,
+                effective_to: null,
             },
         });
 
         if (!currentRate) {
-            await this.prisma.careLevelRate.create({
+            await this.prisma.care_level_rates.create({
                 data: {
-                    careLevelId,
-                    facilityId: facility.id,
-                    dailyRate: dto.dailyRate,
-                    effectiveFrom: this.toDate(dto.effectiveFrom ?? '2026-01-01'),
+                    care_level_id: careLevelId,
+                    facility_id: facility.id,
+                    daily_rate: dto.dailyRate,
+                    effective_from: this.toDate(dto.effectiveFrom ?? '2026-01-01'),
                 },
             });
         } else {
-            await this.prisma.careLevelRate.update({
+            await this.prisma.care_level_rates.update({
                 where: { id: currentRate.id },
                 data: {
-                    dailyRate: dto.dailyRate,
-                    effectiveFrom: dto.effectiveFrom ? this.toDate(dto.effectiveFrom) : undefined,
+                    daily_rate: dto.dailyRate,
+                    effective_from: dto.effectiveFrom ? this.toDate(dto.effectiveFrom) : undefined,
                 },
             });
         }

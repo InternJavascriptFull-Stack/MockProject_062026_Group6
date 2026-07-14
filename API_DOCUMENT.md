@@ -378,3 +378,90 @@ This document describes the APIs implemented for the Authentication module of th
   }
   ```
 * **Owner**: Backend Team / Frontend Integrator
+
+---
+
+# MODULE M2: CARE PLANNING
+
+## Overview & Logic Rules
+
+### 1. Care Plan Statuses
+The Care Plan entity flows through a specific lifecycle. The `status` field can take the following values:
+* **Draft**: The care plan is being created by a Nurse/RN. It is saved locally or temporarily and is not yet active.
+* **Pending Review**: The Nurse has submitted the care plan to the Director of Nursing (DON) for approval.
+* **Approved**: The DON has reviewed the plan, accepted the Author Accountability, Compliance Checklist, and approved it.
+* **Rejected**: The DON found issues with the plan and returned it to the Nurse with a Rejection Reason.
+* **Signed**: The final stage. The DON has applied their E-Signature to officially activate the Care Plan for the resident.
+
+### 2. LOC Gate Rule (Level of Care Gate)
+**What is LOC Gate?** 
+LOC (Level of Care) represents the tier of service and billing rate assigned to a resident (e.g., Tier 1, Tier 2, Tier 3). 
+The **LOC Gate** is a validation rule that triggers when a Nurse creates or updates a Care Plan with interventions/tasks that exceed the resident's currently assessed Level of Care.
+* **Why it exists**: To prevent delivering unbilled services. If a resident is paying for Tier 1 but the new care plan assigns Tier 3 interventions (e.g., extensive bathing, feeding assistance), the system must "Gate" (block or warn) the submission so that the Administration can re-assess and re-bill the resident before providing extra care.
+* **In this Mock Project**: If a Care Plan is created with **3 or more Care Areas**, it automatically triggers the LOC Gate Warning banner, forcing a DON review and acknowledging the tier mismatch.
+
+---
+
+## 1. List Care Plans
+* **API Name**: Get Care Plans
+* **Method**: `GET`
+* **Endpoint**: `/api/care-plans`
+* **Description**: Returns all care plans for the dashboard summary and list.
+
+## 2. Get Care Plan Detail
+* **API Name**: Get Care Plan by ID
+* **Method**: `GET`
+* **Endpoint**: `/api/care-plans/:id`
+* **Description**: Retrieves a specific care plan including goals, interventions, tasks, and history.
+
+## 3. Create Care Plan
+* **API Name**: Create Care Plan
+* **Method**: `POST`
+* **Endpoint**: `/api/care-plans`
+* **Description**: Creates a new care plan with status Draft or Pending Review.
+* **Request Body**:
+  ```json
+  {
+    "residentId": "uuid",
+    "status": "Draft",
+    "goals": [{ "description": "Improve mobility" }],
+    "interventions": [{ "description": "Assist walking", "assignedRole": "CNA" }]
+  }
+  ```
+
+## 4. DON Review (Approve/Reject)
+* **API Name**: DON Review Care Plan
+* **Method**: `POST`
+* **Endpoint**: `/api/care-plans/:id/don-review`
+* **Description**: Allows the DON to Approve or Reject a submitted Care Plan.
+* **Request Body**:
+  ```json
+  {
+    "status": "APPROVED",
+    "notes": "Looks good"
+  }
+  ```
+
+## 5. E-Signature
+* **API Name**: E-Sign Care Plan
+* **Method**: `POST`
+* **Endpoint**: `/api/care-plans/:id/esign`
+* **Description**: Validates the dummy signature token and changes status to Signed.
+* **Request Body**:
+  ```json
+  {
+    "signatureToken": "dummy_password_123"
+  }
+  ```
+
+## 6. IDT Acknowledgment
+* **API Name**: IDT Acknowledgment
+* **Method**: `POST`
+* **Endpoint**: `/api/care-plans/:id/idt-ack`
+* **Description**: Records that an Interdisciplinary Team member (Doctor, Dietitian) has read and acknowledged the plan.
+* **Request Body**:
+  ```json
+  {
+    "notes": "Acknowledged dietary requirements."
+  }
+  ```

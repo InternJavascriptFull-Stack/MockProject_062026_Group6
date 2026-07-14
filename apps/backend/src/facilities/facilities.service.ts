@@ -2,250 +2,277 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UpdateFacilitySettingsDto } from './dto/updateFacilitySettings.dto.js';
 import {
-    BED_STATUS_LABELS,
-    DEFAULT_FACILITY_CODE,
-    ROOM_OCCUPANT_NOTES,
-    STATE_NAMES,
+  BED_STATUS_LABELS,
+  DEFAULT_FACILITY_CODE,
+  ROOM_OCCUPANT_NOTES,
+  STATE_NAMES,
 } from './facilities.constants.js';
 
 @Injectable()
 export class FacilitiesService {
-    constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-    private serializeBigInt(data: unknown) {
-        return JSON.parse(
-            JSON.stringify(data, (_key, value) =>
-                typeof value === 'bigint' ? value.toString() : value,
-            ),
-        );
+  private serialize(data: unknown) {
+    return JSON.parse(
+      JSON.stringify(data, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    );
+  }
+
+  private getStateName(stateCode: string) {
+    return STATE_NAMES[stateCode] ?? stateCode;
+  }
+
+  private toDate(value: string) {
+    return new Date(`${value}T00:00:00.000Z`);
+  }
+
+  private formatDate(value: Date | string) {
+    return new Date(value).toISOString().slice(0, 10);
+  }
+
+  private getWing(roomNumber: string) {
+    const numericRoom = Number.parseInt(roomNumber, 10);
+
+    if (numericRoom >= 220) {
+      return 'Wing C';
     }
 
-    private getStateName(stateCode: string) {
-        return STATE_NAMES[stateCode] ?? stateCode;
+    if (numericRoom >= 200) {
+      return 'Wing B';
     }
 
-    private toDate(value: string) {
-        return new Date(`${value}T00:00:00.000Z`);
+    return 'Wing A';
+  }
+
+  private getOccupantNote(status: string, roomNumber: string) {
+    if (status === 'MAINTENANCE') {
+      return 'Plumbing repair';
     }
 
-    private formatDate(value: Date | string) {
-        return new Date(value).toISOString().slice(0, 10);
+    return ROOM_OCCUPANT_NOTES[roomNumber] ?? null;
+  }
+
+  private mapBedStatus(status: string) {
+    return BED_STATUS_LABELS[status] ?? status;
+  }
+
+  async findAll() {
+    const facilities = await this.prisma.facility.findMany({
+      where: { isDeleted: false },
+      orderBy: { name: 'asc' },
+    });
+
+    return this.serialize(facilities);
+  }
+
+  private async getDefaultFacility() {
+    const facility = await this.prisma.facility.findUnique({
+      where: { facilityCode: DEFAULT_FACILITY_CODE },
+    });
+
+    if (!facility) {
+      throw new NotFoundException('Facility settings not found. Please run the Prisma seed first.');
     }
 
-    private getWing(roomNumber: string) {
-        const numericRoom = Number.parseInt(roomNumber, 10);
+    return facility;
+  }
 
-        if (numericRoom >= 220) {
-            return 'Wing C';
-        }
+  async getFacilitySettings() {
+    const facility = await this.getDefaultFacility();
+    const [rooms, roomRates, capabilities] = await Promise.all([
+      this.prisma.rooms.findMany({
+        where: {
+          facility_id: facility.id,
+          is_deleted: false,
+        },
+        include: { beds: true },
+        orderBy: { room_number: 'asc' },
+      }),
+      this.prisma.facility_room_rates.findMany({
+        where: { facility_id: facility.id },
+        orderBy: { room_type: 'asc' },
+      }),
+      this.prisma.facility_clinical_capabilities.findMany({
+        where: { facility_id: facility.id },
+        orderBy: { id: 'asc' },
+      }),
+    ]);
 
-        if (numericRoom >= 200) {
-            return 'Wing B';
-        }
+    const roomRows = rooms.flatMap((room) =>
+      room.beds.map((bed) => ({
+        roomId: room.id,
+        bedId: bed.id,
+        wing: this.getWing(room.room_number),
+        roomNumber: room.room_number,
+        bedNumber: bed.bed_number,
+        roomType: room.room_type,
+        status: this.mapBedStatus(bed.status),
+        occupantNote: this.getOccupantNote(bed.status, room.room_number),
+      })),
+    );
 
-        return 'Wing A';
-    }
+    return this.serialize({
+      id: facility.id,
+      facilityCode: facility.facilityCode,
+      name: facility.name,
+      licenseNumber: facility.licenseNumber,
+      targetState: facility.targetState,
+      targetStateName: this.getStateName(facility.targetState),
+      timezone: facility.timezone,
+      phoneNumber: facility.phoneNumber,
+      roomSummary: `${roomRows.length} rooms configured across 3 wings`,
+      rooms: roomRows,
+      roomRates: roomRates.map((rate) => ({
+        id: rate.id.toString(),
+        roomType: rate.room_type,
+        dailyRate: Number(rate.daily_rate),
+        effectiveFrom: this.formatDate(rate.effective_from),
+      })),
+      capabilities: capabilities.map((capability) => ({
+        id: capability.id.toString(),
+        capability: capability.capability,
+        supported: capability.supported,
+        note: capability.note,
+      })),
+    });
+  }
 
-    private getOccupantNote(status: string, roomNumber: string) {
-        if (status === 'MAINTENANCE') {
-            return 'Plumbing repair';
-        }
+  async updateFacilitySettings(dto: UpdateFacilitySettingsDto) {
+    const facility = await this.getDefaultFacility();
 
-        return ROOM_OCCUPANT_NOTES[roomNumber] ?? null;
-    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.facility.update({
+        where: { id: facility.id },
+        data: {
+          name: dto.name,
+          licenseNumber: dto.licenseNumber,
+          targetState: dto.targetState,
+          timezone: dto.timezone,
+          phoneNumber: dto.phoneNumber,
+        },
+      });
 
-    private mapBedStatus(status: string) {
-        return BED_STATUS_LABELS[status] ?? status;
-    }
-
-    async getFacilitySettings() {
-        const facilitySettings = await this.prisma.facility.findFirst({
-            where: {
-                facilityCode: DEFAULT_FACILITY_CODE,
-                isDeleted: false,
-            },
-            include: {
-                rooms: {
-                    where: { isDeleted: false },
-                    include: { beds: true },
-                    orderBy: { roomNumber: 'asc' },
-                },
-                roomRates: {
-                    orderBy: { roomType: 'asc' },
-                },
-                capabilities: {
-                    orderBy: { id: 'asc' },
-                },
-            },
-        });
-
-        if (!facilitySettings) {
-            throw new NotFoundException('Facility settings not found. Please run the Prisma seed first.');
-        }
-
-        const rooms = facilitySettings.rooms.flatMap((room) =>
-            room.beds.map((bed) => ({
-                roomId: room.id.toString(),
-                bedId: bed.id.toString(),
-                wing: this.getWing(room.roomNumber),
-                roomNumber: room.roomNumber,
-                bedNumber: bed.bedNumber,
-                roomType: room.roomType,
-                status: this.mapBedStatus(bed.status),
-                occupantNote: this.getOccupantNote(bed.status, room.roomNumber),
-            })),
-        );
-
-        return this.serializeBigInt({
-            id: facilitySettings.id,
-            facilityCode: facilitySettings.facilityCode,
-            name: facilitySettings.name,
-            licenseNumber: facilitySettings.licenseNumber,
-            targetState: facilitySettings.targetState,
-            targetStateName: this.getStateName(facilitySettings.targetState),
-            timezone: facilitySettings.timezone,
-            phoneNumber: facilitySettings.phoneNumber,
-            roomSummary: `${rooms.length} rooms configured across 3 wings`,
-            rooms,
-            roomRates: facilitySettings.roomRates.map((rate) => ({
-                id: rate.id.toString(),
-                roomType: rate.roomType,
-                dailyRate: Number(rate.dailyRate),
-                effectiveFrom: this.formatDate(rate.effectiveFrom),
-            })),
-            capabilities: facilitySettings.capabilities.map((capability) => ({
-                id: capability.id.toString(),
-                capability: capability.capability,
-                supported: capability.supported,
-                note: capability.note,
-            })),
-        });
-    }
-
-    async updateFacilitySettings(dto: UpdateFacilitySettingsDto) {
-        const facility = await this.prisma.facility.findUnique({
-            where: { facilityCode: DEFAULT_FACILITY_CODE },
-        });
-
-        if (!facility) {
-            throw new NotFoundException('Facility settings not found. Please run the Prisma seed first.');
-        }
-
-        await this.prisma.$transaction(async (tx) => {
-            await tx.facility.update({
-                where: { id: facility.id },
-                data: {
-                    name: dto.name,
-                    licenseNumber: dto.licenseNumber,
-                    targetState: dto.targetState,
-                    timezone: dto.timezone,
-                    phoneNumber: dto.phoneNumber,
-                },
+      if (dto.rooms) {
+        for (const room of dto.rooms) {
+          if (room.roomId && room.bedId) {
+            await tx.rooms.update({
+              where: { id: room.roomId },
+              data: {
+                room_number: room.roomNumber,
+                room_type: room.roomType,
+                is_deleted: false,
+              },
             });
 
-            if (dto.rooms) {
-                for (const room of dto.rooms) {
-                    if (room.roomId && room.bedId) {
-                        await tx.room.update({
-                            where: { id: BigInt(room.roomId) },
-                            data: {
-                                roomNumber: room.roomNumber,
-                                roomType: room.roomType,
-                                isDeleted: false,
-                            },
-                        });
+            await tx.beds.update({
+              where: { id: room.bedId },
+              data: {
+                bed_number: room.bedNumber,
+                status: room.status,
+              },
+            });
+          } else {
+            let savedRoom = await tx.rooms.findUnique({
+              where: {
+                facility_id_room_number: {
+                  facility_id: facility.id,
+                  room_number: room.roomNumber,
+                },
+              },
+            });
 
-                        await tx.bed.update({
-                            where: { id: BigInt(room.bedId) },
-                            data: {
-                                bedNumber: room.bedNumber,
-                                status: room.status,
-                            },
-                        });
-                    } else {
-                        const savedRoom = await tx.room.upsert({
-                            where: {
-                                facilityId_roomNumber: {
-                                    facilityId: facility.id,
-                                    roomNumber: room.roomNumber,
-                                },
-                            },
-                            update: {
-                                roomType: room.roomType,
-                                isDeleted: false,
-                            },
-                            create: {
-                                facilityId: facility.id,
-                                roomNumber: room.roomNumber,
-                                roomType: room.roomType,
-                            },
-                        });
-
-                        await tx.bed.upsert({
-                            where: {
-                                roomId_bedNumber: {
-                                    roomId: savedRoom.id,
-                                    bedNumber: room.bedNumber,
-                                },
-                            },
-                            update: { status: room.status },
-                            create: {
-                                roomId: savedRoom.id,
-                                bedNumber: room.bedNumber,
-                                status: room.status,
-                            },
-                        });
-                    }
-                }
+            if (!savedRoom) {
+              savedRoom = await tx.rooms.create({
+                data: {
+                  facility_id: facility.id,
+                  room_number: room.roomNumber,
+                  room_type: room.roomType,
+                },
+              });
+            } else {
+              savedRoom = await tx.rooms.update({
+                where: { id: savedRoom.id },
+                data: {
+                  room_type: room.roomType,
+                  is_deleted: false,
+                },
+              });
             }
 
-            if (dto.roomRates) {
-                for (const rate of dto.roomRates) {
-                    await tx.facilityRoomRate.upsert({
-                        where: {
-                            facilityId_roomType: {
-                                facilityId: facility.id,
-                                roomType: rate.roomType,
-                            },
-                        },
-                        update: {
-                            dailyRate: rate.dailyRate,
-                            effectiveFrom: this.toDate(rate.effectiveFrom),
-                        },
-                        create: {
-                            facilityId: facility.id,
-                            roomType: rate.roomType,
-                            dailyRate: rate.dailyRate,
-                            effectiveFrom: this.toDate(rate.effectiveFrom),
-                        },
-                    });
-                }
-            }
+            const savedBed = await tx.beds.findFirst({
+              where: {
+                room_id: savedRoom.id,
+                bed_number: room.bedNumber,
+              },
+            });
 
-            if (dto.capabilities) {
-                for (const capability of dto.capabilities) {
-                    await tx.facilityClinicalCapability.upsert({
-                        where: {
-                            facilityId_capability: {
-                                facilityId: facility.id,
-                                capability: capability.capability,
-                            },
-                        },
-                        update: {
-                            supported: capability.supported,
-                            note: capability.note ?? null,
-                        },
-                        create: {
-                            facilityId: facility.id,
-                            capability: capability.capability,
-                            supported: capability.supported,
-                            note: capability.note ?? null,
-                        },
-                    });
-                }
+            if (savedBed) {
+              await tx.beds.update({
+                where: { id: savedBed.id },
+                data: { status: room.status },
+              });
+            } else {
+              await tx.beds.create({
+                data: {
+                  room_id: savedRoom.id,
+                  bed_number: room.bedNumber,
+                  status: room.status,
+                },
+              });
             }
-        });
+          }
+        }
+      }
 
-        return this.getFacilitySettings();
-    }
+      if (dto.roomRates) {
+        for (const rate of dto.roomRates) {
+          await tx.facility_room_rates.upsert({
+            where: {
+              facility_id_room_type: {
+                facility_id: facility.id,
+                room_type: rate.roomType,
+              },
+            },
+            update: {
+              daily_rate: rate.dailyRate,
+              effective_from: this.toDate(rate.effectiveFrom),
+            },
+            create: {
+              facility_id: facility.id,
+              room_type: rate.roomType,
+              daily_rate: rate.dailyRate,
+              effective_from: this.toDate(rate.effectiveFrom),
+            },
+          });
+        }
+      }
+
+      if (dto.capabilities) {
+        for (const capability of dto.capabilities) {
+          await tx.facility_clinical_capabilities.upsert({
+            where: {
+              facility_id_capability: {
+                facility_id: facility.id,
+                capability: capability.capability,
+              },
+            },
+            update: {
+              supported: capability.supported,
+              note: capability.note ?? null,
+            },
+            create: {
+              facility_id: facility.id,
+              capability: capability.capability,
+              supported: capability.supported,
+              note: capability.note ?? null,
+            },
+          });
+        }
+      }
+    });
+
+    return this.getFacilitySettings();
+  }
 }

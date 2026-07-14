@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, IsEnum, MinLength, IsNumber } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsEnum, MinLength, IsNumber, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -19,6 +19,11 @@ export class CreateUserDto {
   @IsNotEmpty()
   email!: string;
 
+  @ApiProperty({ example: '+14155550100', required: false })
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string;
+
   @ApiProperty({ example: 1 })
   @IsNumber()
   @IsNotEmpty()
@@ -29,4 +34,9 @@ export class CreateUserDto {
   @IsNotEmpty()
   @IsEnum(['ACTIVE', 'INACTIVE', 'LOCKED'])
   status!: string;
+
+  @ApiProperty({ example: 'uuid', required: false })
+  @IsString()
+  @IsOptional()
+  facilityId?: string;
 }

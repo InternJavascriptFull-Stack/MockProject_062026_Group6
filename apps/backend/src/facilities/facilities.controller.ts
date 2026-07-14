@@ -4,19 +4,25 @@ import { FacilitiesService } from './facilities.service.js';
 import { UpdateFacilitySettingsDto } from './dto/updateFacilitySettings.dto.js';
 
 @ApiTags('facilities')
-@Controller('api/facility')
+@Controller()
 export class FacilitiesController {
-    constructor(private readonly facilitiesService: FacilitiesService) {}
+  constructor(private readonly facilitiesService: FacilitiesService) {}
 
-    @Get('settings')
-    @ApiOperation({ summary: 'Get facility settings' })
-    getFacilitySettings() {
-        return this.facilitiesService.getFacilitySettings();
-    }
+  @Get('api/facilities')
+  @ApiOperation({ summary: 'Get a list of facilities' })
+  findAll() {
+    return this.facilitiesService.findAll();
+  }
 
-    @Put('settings')
-    @ApiOperation({ summary: 'Update facility settings' })
-    updateFacilitySettings(@Body() dto: UpdateFacilitySettingsDto) {
-        return this.facilitiesService.updateFacilitySettings(dto);
-    }
+  @Get('api/facility/settings')
+  @ApiOperation({ summary: 'Get facility settings' })
+  getFacilitySettings() {
+    return this.facilitiesService.getFacilitySettings();
+  }
+
+  @Put('api/facility/settings')
+  @ApiOperation({ summary: 'Update facility settings' })
+  updateFacilitySettings(@Body() dto: UpdateFacilitySettingsDto) {
+    return this.facilitiesService.updateFacilitySettings(dto);
+  }
 }

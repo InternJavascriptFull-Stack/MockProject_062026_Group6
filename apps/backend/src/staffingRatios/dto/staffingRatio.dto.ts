@@ -55,10 +55,8 @@ export class StaffingRatioDto {
     @IsOptional()
     shifts?: StaffingShiftDto[];
 
-    @ApiProperty({ example: 1, required: false })
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
+    @ApiProperty({ example: 'FACILITY-UUID', required: false })
+    @IsString()
     @IsOptional()
-    facilityId?: number;
+    facilityId?: string;
 }
