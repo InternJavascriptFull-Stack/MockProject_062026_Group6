@@ -69,6 +69,24 @@ async function main() {
             roleId: dbRoles["System Admin"].id,
         },
     });
+
+    // Wuan admin
+    const wuanHashedPassword = await bcrypt.hash("123123", BCRYPT_ROUNDS);
+    await prisma.user.upsert({
+        where: { email: "wuan1604@gmail.com" },
+        update: {},
+        create: {
+            employeeCode: "EMP_WUAN",
+            email: "wuan1604@gmail.com",
+            passwordHash: wuanHashedPassword,
+            firstName: "Wuan",
+            lastName: "Admin",
+            phoneNumber: "+15559998888",
+            status: "ACTIVE",
+            mfaEnabled: true,
+            roleId: dbRoles["System Admin"].id,
+        },
+    });
     // Active nurse
     await prisma.user.upsert({
         where: { email: "j.rivera@facility.org" },

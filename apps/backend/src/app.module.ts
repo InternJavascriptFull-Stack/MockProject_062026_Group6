@@ -25,3 +25,4 @@ import { SlaConfigurationsModule } from './sla-configurations/sla-configurations
   providers: [AppService],
 })
 export class AppModule {}
+
