@@ -17,16 +17,10 @@ import ChartLockConfirmation from "./pages/residents/ChartLockConfirmation";
 import { DoctorsSchedulePage } from "./pages/schedule/doctorsSchedulePage";
 import { EmarPage } from "./pages/emar/emarPage";
 import { CarePlanPage } from "./pages/carePlan/carePlanPage";
-import { ResidentListPage } from "./pages/residents/residentListPage";
-import { ResidentFormPage } from "./pages/residents/residentFormPage";
-import { ResidentProfileDetailPage } from "./pages/residents/residentProfileDetailPage";
-import { ResidentReceptionPage } from "./pages/residents/residentReceptionPage";
-
-// Care Plan pages
-import { CarePlanListPage } from "./pages/carePlan/carePlanListPage";
-import { CreateCarePlanPage } from "./pages/carePlan/createCarePlanPage";
-import { DonReviewPage } from "./pages/carePlan/donReviewPage";
-import { IdtAcknowledgmentPage } from "./pages/carePlan/idtAcknowledgmentPage";
+import IncidentSeverityLevels from "./pages/incidentSeverity/IncidentSeverityLevels";
+import SlaConfiguration from "./pages/slaConfig/SlaConfiguration";
+import EquipmentInventory from "./pages/inventory/EquipmentInventory";
+import EquipmentForm from "./pages/inventory/EquipmentForm";
 
 function App() {
     return (
@@ -132,10 +126,16 @@ function App() {
                 <Route path="/incidents/:id/lock-confirm" element={<ChartLockConfirmation />} />
             </Route>
 
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-    );
+      <Route path="/admin/incident-severity" element={<ProtectedRoute><AdminLayout><IncidentSeverityLevels /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/sla-config" element={<ProtectedRoute><AdminLayout><SlaConfiguration /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/equipment" element={<ProtectedRoute><AdminLayout><EquipmentInventory /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/equipment/add" element={<ProtectedRoute><AdminLayout><EquipmentForm /></AdminLayout></ProtectedRoute>} />
+      <Route path="/admin/equipment/:id/edit" element={<ProtectedRoute><AdminLayout><EquipmentForm /></AdminLayout></ProtectedRoute>} />
+
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
 }
 
 export default App;

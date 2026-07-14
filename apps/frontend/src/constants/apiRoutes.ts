@@ -6,4 +6,7 @@ export const API_ROUTES = {
     CARE_PLANS: "/api/care-plans",
     MEDICATIONS: "/api/medications",
     DOCTOR_SCHEDULES: "/api/doctor-schedules",
+    EQUIPMENT_SUPPLIES: "/api/equipment-supplies",
+    INCIDENT_SEVERITIES: "/api/incident-severities",
+    SLA_CONFIGURATIONS: "/api/sla-configurations",
 } as const;
