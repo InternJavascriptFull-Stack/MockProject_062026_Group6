@@ -31,11 +31,11 @@ model User {
 }
 
 model Role {
-  id          BigInt   @id @default(autoincrement()) @db.BigInt
-  roleName    String   @unique @map("role_name") @db.NVarChar(100)
-  description String?  @map("description") @db.NVarChar(255)
-  createdAt   DateTime @default(now()) @map("created_at") @db.DateTimeOffset
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTimeOffset
+  id          BigInt           @id @default(autoincrement()) @db.BigInt
+  roleName    String           @unique @map("role_name") @db.NVarChar(100)
+  description String?          @map("description") @db.NVarChar(255)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.DateTimeOffset
   users       User[]
   permissions RolePermission[]
 
@@ -60,4 +60,113 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
+}
+
+model Facility {
+  id              BigInt                       @id @default(autoincrement()) @db.BigInt
+  facilityCode    String                       @unique @map("facility_code") @db.NVarChar(50)
+  name            String                       @db.NVarChar(200)
+  licenseNumber   String                       @map("license_number") @db.NVarChar(100)
+  targetState     String                       @map("target_state") @db.Char(2)
+  timezone        String                       @default("America/Los_Angeles (Pacific)") @db.NVarChar(100)
+  addressId       BigInt?                      @map("address_id") @db.BigInt
+  phoneNumber     String?                      @map("phone_number") @db.NVarChar(20)
+  isDeleted       Boolean                      @default(false) @map("is_deleted")
+  createdAt       DateTime                     @default(now()) @map("created_at") @db.DateTimeOffset
+  updatedAt       DateTime                     @updatedAt @map("updated_at") @db.DateTimeOffset
+  rooms           Room[]
+  staffingConfigs StaffingConfig[]
+  careLevelRates  CareLevelRate[]
+  roomRates       FacilityRoomRate[]
+  capabilities    FacilityClinicalCapability[]
+
+  @@map("facilities")
+}
+
+model FacilityRoomRate {
+  id            BigInt   @id @default(autoincrement()) @db.BigInt
+  facilityId    BigInt   @map("facility_id") @db.BigInt
+  roomType      String   @map("room_type") @db.NVarChar(50)
+  dailyRate     Decimal  @map("daily_rate") @db.Decimal(18, 2)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  facility      Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, roomType], map: "uq_facility_room_rate")
+  @@map("facility_room_rates")
+}
+
+model FacilityClinicalCapability {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  facilityId BigInt   @map("facility_id") @db.BigInt
+  capability String   @db.NVarChar(200)
+  supported  Boolean  @default(true)
+  note       String?  @db.NVarChar(500)
+  facility   Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([facilityId, capability], map: "uq_facility_clinical_capability")
+  @@map("facility_clinical_capabilities")
+}
+
+model Room {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  roomNumber String   @map("room_number") @db.NVarChar(20)
+  roomType   String   @map("room_type") @db.NVarChar(50)
+  facilityId BigInt   @map("facility_id") @db.BigInt
+  isDeleted  Boolean  @default(false) @map("is_deleted")
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  beds       Bed[]
+
+  @@unique([facilityId, roomNumber], map: "uq_room_per_facility")
+  @@index([facilityId], map: "idx_rooms_facility_id")
+  @@map("rooms")
+}
+
+model Bed {
+  id        BigInt @id @default(autoincrement()) @db.BigInt
+  bedNumber String @map("bed_number") @db.NVarChar(20)
+  status    String @default("AVAILABLE") @db.VarChar(20)
+  roomId    BigInt @map("room_id") @db.BigInt
+  room      Room   @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, bedNumber], map: "uq_bed_per_room")
+  @@index([roomId], map: "idx_beds_room_id")
+  @@index([status], map: "idx_beds_status")
+  @@map("beds")
+}
+
+model StaffingConfig {
+  id                   BigInt   @id @default(autoincrement()) @db.BigInt
+  minHrsPerResidentDay Decimal  @map("min_hrs_per_resident_day") @db.Decimal(5, 2)
+  warnBelowPercentage  Int      @map("warn_below_percentage")
+  shiftBreakdownJson   String   @default("") @map("shift_breakdown_json") @db.NVarChar(2000)
+  facilityId           BigInt   @map("facility_id") @db.BigInt
+  createdAt            DateTime @default(now()) @map("created_at") @db.DateTimeOffset
+  facility             Facility @relation(fields: [facilityId], references: [id])
+
+  @@index([facilityId], map: "idx_staffing_configs_facility_id")
+  @@map("staffing_configs")
+}
+
+model CareLevel {
+  id             BigInt          @id @default(autoincrement()) @db.BigInt
+  levelCode      String          @unique @map("level_code") @db.VarChar(30)
+  levelName      String          @map("level_name") @db.NVarChar(100)
+  isDeleted      Boolean         @default(false) @map("is_deleted")
+  careLevelRates CareLevelRate[]
+
+  @@map("care_levels")
+}
+
+model CareLevelRate {
+  id            BigInt    @id @default(autoincrement()) @db.BigInt
+  careLevelId   BigInt    @map("care_level_id") @db.BigInt
+  facilityId    BigInt    @map("facility_id") @db.BigInt
+  dailyRate     Decimal   @map("daily_rate") @db.Decimal(18, 2)
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  careLevel     CareLevel @relation(fields: [careLevelId], references: [id])
+  facility      Facility  @relation(fields: [facilityId], references: [id])
+
+  @@index([careLevelId, facilityId, effectiveFrom], map: "idx_care_level_rates_lookup")
+  @@map("care_level_rates")
 }

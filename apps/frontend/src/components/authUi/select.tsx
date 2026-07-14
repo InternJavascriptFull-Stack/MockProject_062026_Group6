@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ComponentProps,
@@ -21,16 +22,25 @@ const SelectContext = createContext<SelectContextValue | null>(null);
 
 export function Select({
   defaultValue = "",
+  value: controlledValue,
   onValueChange,
   children,
 }: {
   defaultValue?: string;
+  value?: string;
   onValueChange?: (value: string) => void;
   children: ReactNode;
 }) {
   const [value, setValue] = useState(defaultValue);
   const [label, setLabel] = useState<ReactNode>(null);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (controlledValue !== undefined) {
+      setValue(controlledValue);
+    }
+  }, [controlledValue]);
+
   const contextValue = useMemo(
     () => ({
       value,

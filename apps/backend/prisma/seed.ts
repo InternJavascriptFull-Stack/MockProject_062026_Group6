@@ -9,6 +9,66 @@ import * as bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 const BCRYPT_ROUNDS = 12;
+const DEFAULT_FACILITY_CODE = "FAC-0042";
+
+const careLevelSeed = [
+  {
+    levelCode: "INDEPENDENT_LIVING",
+    levelName: "Tier 1 - Low",
+    dailyRate: 165,
+  },
+  {
+    levelCode: "ASSISTED_LIVING",
+    levelName: "Tier 2 - Moderate",
+    dailyRate: 205,
+  },
+  {
+    levelCode: "MEMORY_CARE",
+    levelName: "Tier 3 - High",
+    dailyRate: 248,
+  },
+  {
+    levelCode: "SKILLED_NURSING",
+    levelName: "Tier 4 - Total",
+    dailyRate: 310,
+  },
+] as const;
+
+const roomSeed = [
+  { roomNumber: "101", roomType: "Private", bedNumber: "A", status: "AVAILABLE" },
+  { roomNumber: "106", roomType: "Semi-private", bedNumber: "A", status: "OCCUPIED" },
+  { roomNumber: "114", roomType: "Semi-private", bedNumber: "B", status: "OCCUPIED" },
+  { roomNumber: "118", roomType: "Semi-private", bedNumber: "A", status: "OCCUPIED" },
+  { roomNumber: "204", roomType: "Semi-private", bedNumber: "B", status: "OCCUPIED" },
+  { roomNumber: "210", roomType: "Semi-private", bedNumber: "B", status: "OCCUPIED" },
+  { roomNumber: "215", roomType: "Private", bedNumber: "A", status: "MAINTENANCE" },
+  { roomNumber: "222", roomType: "Semi-private", bedNumber: "A", status: "OCCUPIED" },
+] as const;
+
+const roomRateSeed = [
+  { roomType: "Private", dailyRate: 220, effectiveFrom: "2026-01-01" },
+  { roomType: "Semi-private", dailyRate: 185, effectiveFrom: "2026-01-01" },
+  { roomType: "Ward", dailyRate: 150, effectiveFrom: "2026-01-01" },
+] as const;
+
+const clinicalCapabilitySeed = [
+  { capability: "Wound care / pressure ulcer management", supported: true },
+  { capability: "Physical / Occupational / Speech therapy", supported: true },
+  { capability: "Dementia or behavioral health management", supported: true },
+  {
+    capability: "Bariatric care needs",
+    supported: false,
+    note: "Facility-wide bed weight limit: 300 lb (no bariatric-rated equipment on site).",
+  },
+  { capability: "IV therapy or complex medication administration", supported: true },
+  { capability: "Ventilator or respiratory support", supported: true },
+  { capability: "Hospice or palliative care coordination", supported: true },
+  { capability: "Isolation precautions (MRSA, C. diff, etc.)", supported: true },
+] as const;
+
+function toDate(value: string) {
+  return new Date(`${value}T00:00:00.000Z`);
+}
 
 async function main() {
   const rolesData = [
@@ -111,6 +171,191 @@ async function main() {
       roleId: dbRoles["Nurse (RN/LPN)"].id,
     },
   });
+
+  const facility = await prisma.facility.upsert({
+    where: { facilityCode: DEFAULT_FACILITY_CODE },
+    update: {
+      name: "NHMS Demo Skilled Nursing Facility",
+      licenseNumber: "CA-SNF-004821",
+      targetState: "CA",
+      timezone: "America/Los_Angeles (Pacific)",
+      phoneNumber: "+14155550142",
+      isDeleted: false,
+    },
+    create: {
+      facilityCode: DEFAULT_FACILITY_CODE,
+      name: "NHMS Demo Skilled Nursing Facility",
+      licenseNumber: "CA-SNF-004821",
+      targetState: "CA",
+      timezone: "America/Los_Angeles (Pacific)",
+      phoneNumber: "+14155550142",
+    },
+  });
+
+  for (const item of roomSeed) {
+    const room = await prisma.room.upsert({
+      where: {
+        facilityId_roomNumber: {
+          facilityId: facility.id,
+          roomNumber: item.roomNumber,
+        },
+      },
+      update: {
+        roomType: item.roomType,
+        isDeleted: false,
+      },
+      create: {
+        roomNumber: item.roomNumber,
+        roomType: item.roomType,
+        facilityId: facility.id,
+      },
+    });
+
+    await prisma.bed.upsert({
+      where: {
+        roomId_bedNumber: {
+          roomId: room.id,
+          bedNumber: item.bedNumber,
+        },
+      },
+      update: { status: item.status },
+      create: {
+        bedNumber: item.bedNumber,
+        status: item.status,
+        roomId: room.id,
+      },
+    });
+  }
+
+  for (const item of careLevelSeed) {
+    const careLevel = await prisma.careLevel.upsert({
+      where: { levelCode: item.levelCode },
+      update: {
+        levelName: item.levelName,
+        isDeleted: false,
+      },
+      create: {
+        levelCode: item.levelCode,
+        levelName: item.levelName,
+      },
+    });
+
+    const currentRate = await prisma.careLevelRate.findFirst({
+      where: {
+        careLevelId: careLevel.id,
+        facilityId: facility.id,
+        effectiveTo: null,
+      },
+    });
+
+    if (currentRate) {
+      await prisma.careLevelRate.update({
+        where: { id: currentRate.id },
+        data: {
+          dailyRate: item.dailyRate,
+          effectiveFrom: toDate("2026-01-01"),
+        },
+      });
+    } else {
+      await prisma.careLevelRate.create({
+        data: {
+          careLevelId: careLevel.id,
+          facilityId: facility.id,
+          dailyRate: item.dailyRate,
+          effectiveFrom: toDate("2026-01-01"),
+        },
+      });
+    }
+  }
+
+  for (const item of roomRateSeed) {
+    await prisma.facilityRoomRate.upsert({
+      where: {
+        facilityId_roomType: {
+          facilityId: facility.id,
+          roomType: item.roomType,
+        },
+      },
+      update: {
+        dailyRate: item.dailyRate,
+        effectiveFrom: toDate(item.effectiveFrom),
+      },
+      create: {
+        facilityId: facility.id,
+        roomType: item.roomType,
+        dailyRate: item.dailyRate,
+        effectiveFrom: toDate(item.effectiveFrom),
+      },
+    });
+  }
+
+  for (const item of clinicalCapabilitySeed) {
+    await prisma.facilityClinicalCapability.upsert({
+      where: {
+        facilityId_capability: {
+          facilityId: facility.id,
+          capability: item.capability,
+        },
+      },
+      update: {
+        supported: item.supported,
+        note: "note" in item ? item.note : null,
+      },
+      create: {
+        facilityId: facility.id,
+        capability: item.capability,
+        supported: item.supported,
+        note: "note" in item ? item.note : null,
+      },
+    });
+  }
+
+  const staffingConfig = await prisma.staffingConfig.findFirst({
+    where: { facilityId: facility.id },
+  });
+  const shiftBreakdownJson = JSON.stringify([
+    {
+      shiftName: "Day",
+      startTime: "07:00",
+      endTime: "15:00",
+      requiredCnaHours: 1.5,
+      requiredNurseHours: 0.9,
+    },
+    {
+      shiftName: "Evening",
+      startTime: "15:00",
+      endTime: "23:00",
+      requiredCnaHours: 0.7,
+      requiredNurseHours: 0.5,
+    },
+    {
+      shiftName: "Night",
+      startTime: "23:00",
+      endTime: "07:00",
+      requiredCnaHours: 0.5,
+      requiredNurseHours: 0.3,
+    },
+  ]);
+
+  if (staffingConfig) {
+    await prisma.staffingConfig.update({
+      where: { id: staffingConfig.id },
+      data: {
+        minHrsPerResidentDay: 3.5,
+        warnBelowPercentage: 90,
+        shiftBreakdownJson,
+      },
+    });
+  } else {
+    await prisma.staffingConfig.create({
+      data: {
+        facilityId: facility.id,
+        minHrsPerResidentDay: 3.5,
+        warnBelowPercentage: 90,
+        shiftBreakdownJson,
+      },
+    });
+  }
 
   console.log("[Seed] Done.");
 }

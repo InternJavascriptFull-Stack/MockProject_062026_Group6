@@ -22,6 +22,7 @@ export interface ApiResponse<T> {
 export interface LoginResponse {
   email: string;
   twoStepRequired: boolean;
+  token?: string;
   tempCode?: string;
   phoneHint?: string | null;
 }

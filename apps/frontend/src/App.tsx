@@ -8,6 +8,9 @@ import Patients from "./pages/Patients/page";
 import UserList from "./pages/users/UserList";
 import UserForm from "./pages/users/UserForm";
 import RoleMatrix from "./pages/roles/RoleMatrix";
+import FacilitySettingsPage from "./pages/facilities/FacilitySettingsPage";
+import LocRateTablePage from "./pages/careLevels/LocRateTablePage";
+import StaffingRatioPage from "./pages/staffingRatios/StaffingRatioPage";
 
 function App() {
   return (
@@ -51,6 +54,36 @@ function App() {
           <ProtectedRoute>
             <AdminLayout>
               <UserForm />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/facility"
+        element={
+          <ProtectedRoute allowedRoles={["System Admin"]}>
+            <AdminLayout>
+              <FacilitySettingsPage />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/loc-rates"
+        element={
+          <ProtectedRoute allowedRoles={["System Admin"]}>
+            <AdminLayout>
+              <LocRateTablePage />
+            </AdminLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/staffing"
+        element={
+          <ProtectedRoute allowedRoles={["System Admin"]}>
+            <AdminLayout>
+              <StaffingRatioPage />
             </AdminLayout>
           </ProtectedRoute>
         }
