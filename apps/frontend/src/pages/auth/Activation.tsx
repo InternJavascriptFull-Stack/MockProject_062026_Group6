@@ -1,225 +1,322 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AuthLayout } from "../../components/auth/AuthLayout";
 import { authService } from "../../services/auth";
-import { Lock } from "lucide-react";
+import { Lock, Mail, Phone, Check, X, ShieldAlert, ArrowLeft, CheckCircle2 } from "lucide-react";
 
 export function Activation() {
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-    const email = searchParams.get("email")?.trim() ?? "";
-    const activationCode = searchParams.get("code")?.trim() ?? "";
-    const hasValidInvite = Boolean(email && activationCode);
+  const email = searchParams.get("email")?.trim() ?? "";
+  const activationCode = searchParams.get("code")?.trim() ?? "";
+  const hasValidInvite = Boolean(email && activationCode);
 
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [phoneNumber, setPhoneNumber] = useState("");
-    const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
-    const [errors, setErrors] = useState<{
-        password?: string;
-        confirmPassword?: string;
-        phoneNumber?: string;
-        terms?: string;
-        api?: string;
-    }>({});
-    const [isLoading, setIsLoading] = useState(false);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{
+    password?: string;
+    confirmPassword?: string;
+    phoneNumber?: string;
+    api?: string;
+  }>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-    const validate = () => {
-        const newErrors: typeof errors = {};
+  // Password rules validation
+  const rules = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /\d/.test(password),
+    special: /[\W_]/.test(password),
+  };
 
-        // Password validation (min 8 chars, mixed case, number)
-        if (!password) {
-            newErrors.password = "Password is required";
-        } else if (password.length < 8) {
-            newErrors.password = "Password must be at least 8 characters";
-        } else {
-            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
-            if (!passwordRegex.test(password)) {
-                newErrors.password = "Password must contain mixed case (uppercase and lowercase) and at least one number";
-            }
-        }
+  const isPasswordStrong = Object.values(rules).every(Boolean);
 
-        if (!confirmPassword) {
-            newErrors.confirmPassword = "Confirm password is required";
-        } else if (password !== confirmPassword) {
-            newErrors.confirmPassword = "Passwords do not match";
-        }
+  const validatePhone = (phone: string) => {
+    // E.164 format: Optional plus sign, followed by 7 to 15 digits
+    const e164Regex = /^\+?[1-9]\d{1,14}$/;
+    return e164Regex.test(phone.replace(/\s+/g, ""));
+  };
 
-        if (!phoneNumber.trim()) {
-            newErrors.phoneNumber = "Phone number is required";
-        }
+  const handleValidation = () => {
+    const newErrors: typeof errors = {};
 
-        if (!acceptedTerms) {
-            newErrors.terms = "You must accept the Terms of Use & Privacy Policy";
-        }
+    if (!password) {
+      newErrors.password = "Password is required";
+    } else if (!isPasswordStrong) {
+      newErrors.password = "Password does not meet all security requirements";
+    }
 
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
+    if (!confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    if (!phoneNumber.trim()) {
+      newErrors.phoneNumber = "Phone number is required";
+    } else if (!validatePhone(phoneNumber)) {
+      newErrors.phoneNumber = "Invalid phone number. Must be in E.164 format (e.g. +15551234567)";
+    }
 
-        if (!hasValidInvite) {
-            setErrors({ api: "This activation link is invalid or incomplete. Please request a new invitation from your administrator." });
-            return;
-        }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-        if (!validate()) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-        setIsLoading(true);
-        setErrors({});
+    if (!hasValidInvite) {
+      setErrors({ api: "This invitation link is invalid or incomplete. Please request a new invitation from your administrator." });
+      return;
+    }
 
-        try {
-            const response = await authService.activate(email, activationCode, password, phoneNumber);
+    if (!handleValidation()) return;
 
-            if (response.success) {
-                setSuccessMsg("Account activated successfully! Redirecting to login...");
-                setTimeout(() => {
-                    navigate("/login");
-                }, 2000);
-            } else {
-                setErrors({ api: response.message || "Failed to activate account. Please check your details." });
-            }
-        } catch (err) {
-            setErrors({ api: "Failed to connect to authentication server. Please try again." });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    setIsLoading(true);
+    setErrors({});
 
+    try {
+      const response = await authService.activate(email, activationCode, password, phoneNumber);
+
+      if (response.success) {
+        setIsSuccess(true);
+      } else {
+        setErrors({ api: response.message || "Failed to activate account. The invitation link may have expired." });
+      }
+    } catch (err) {
+      setErrors({ api: "Failed to connect to authentication server. Please try again." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isSuccess) {
     return (
-        <AuthLayout>
-            <div className="mb-5 w-full text-center">
-                <h2 className="text-xl font-bold tracking-tight text-slate-800">Activate your account</h2>
-            </div>
-
-            {/* Admin Invite Banner */}
-            <div
-                className={`mb-5 w-full rounded-xl border px-4 py-3 text-center text-xs leading-normal font-semibold ${
-                    hasValidInvite ? "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]" : "border-amber-200 bg-amber-50 text-amber-700"
-                }`}
-            >
-                {hasValidInvite ? (
-                    <>
-                        Invited by Administrator <span className="mx-1.5 text-emerald-300">•</span> link valid 72h
-                    </>
-                ) : (
-                    "Activation email and code are missing from this link."
-                )}
-            </div>
-
-            {errors.api && <div className="mb-4 w-full rounded-xl border border-red-100 bg-red-50 p-3 text-center text-xs font-semibold text-red-600">{errors.api}</div>}
-
-            {successMsg && <div className="mb-4 w-full rounded-xl border border-green-100 bg-green-50 p-3 text-center text-xs font-semibold text-green-700">{successMsg}</div>}
-
-            <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-                {/* Email read-only field */}
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-slate-700">Email</label>
-                    <div className="relative">
-                        <input
-                            type="email"
-                            readOnly
-                            className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm text-slate-500 outline-none"
-                            value={email || "No invitation email provided"}
-                        />
-                        <Lock className="absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    </div>
-                    <span className="mt-1 text-[10px] font-medium text-slate-400">Set by admin — read-only</span>
-                </div>
-
-                {/* Set Password field */}
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-slate-700">
-                        Set password <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="password"
-                        className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none focus:ring-2 ${
-                            errors.password ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                        }`}
-                        placeholder="At least 8 chars, mixed case + number"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoading || !hasValidInvite}
-                    />
-                    {errors.password && <span className="mt-1 text-[10px] leading-normal font-semibold text-red-500">{errors.password}</span>}
-                </div>
-
-                {/* Confirm Password field */}
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-slate-700">
-                        Confirm password <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="password"
-                        className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none focus:ring-2 ${
-                            errors.confirmPassword ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                        }`}
-                        placeholder="Re-enter password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        disabled={isLoading}
-                    />
-                    {errors.confirmPassword && <span className="mt-1 text-[10px] font-semibold text-red-500">{errors.confirmPassword}</span>}
-                </div>
-
-                {/* Phone Number field */}
-                <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-slate-700">
-                        Phone number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                        type="text"
-                        className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none focus:ring-2 ${
-                            errors.phoneNumber ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-                        }`}
-                        placeholder="+1 555 000 1234"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        disabled={isLoading}
-                    />
-                    {errors.phoneNumber && <span className="mt-1 text-[10px] font-semibold text-red-500">{errors.phoneNumber}</span>}
-                    <span className="mt-1 text-[10px] font-medium text-slate-400">Used for 2-step verification codes.</span>
-                </div>
-
-                {/* Terms and Conditions Checkbox */}
-                <div className="mt-1 flex flex-col gap-1">
-                    <label className="flex cursor-pointer items-start gap-2.5 select-none">
-                        <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 cursor-pointer rounded border-slate-300 text-[#2563EB] focus:ring-blue-500"
-                            checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            disabled={isLoading}
-                        />
-                        <span className="text-xs leading-normal font-medium text-slate-600">
-                            I accept the{" "}
-                            <a href="#" className="text-blue-600 hover:underline">
-                                Terms of Use
-                            </a>{" "}
-                            &{" "}
-                            <a href="#" className="text-blue-600 hover:underline">
-                                Privacy Policy
-                            </a>
-                        </span>
-                    </label>
-                    {errors.terms && <span className="mt-1 text-[10px] font-semibold text-red-500">{errors.terms}</span>}
-                </div>
-
-                {/* Submit button */}
-                <button
-                    type="submit"
-                    disabled={isLoading || !hasValidInvite}
-                    className="mt-2 w-full rounded-xl bg-[#2563EB] py-3.5 text-sm font-bold text-white shadow-md shadow-blue-500/10 transition-all hover:bg-blue-700 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50"
-                >
-                    {isLoading ? "Activating..." : "Activate account"}
-                </button>
-            </form>
-        </AuthLayout>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans antialiased">
+        <div className="w-full max-w-md bg-white border border-slate-100 rounded-[24px] shadow-xl p-8 flex flex-col items-center text-center">
+          <div className="h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mb-6 shadow-inner animate-bounce">
+            <CheckCircle2 className="h-10 w-10" />
+          </div>
+          <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Account Activated Successfully</h2>
+          <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+            Your account is now active. You can now sign in using your email address or phone number.
+          </p>
+          <button
+            onClick={() => navigate("/login")}
+            className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 transition-all cursor-pointer active:scale-95"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50 p-4 md:p-8 font-sans antialiased">
+      <div className="w-full max-w-5xl bg-white border border-slate-100 rounded-[32px] shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-[640px]">
+        
+        {/* Left Side: Illustration Panel */}
+        <div className="w-full lg:w-1/2 bg-blue-50/50 p-8 md:p-12 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-100">
+          <div>
+            <div className="flex items-center gap-2 mb-6">
+              <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-lg">C</div>
+              <span className="font-bold text-slate-800 tracking-tight text-lg">CareSync</span>
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-900 leading-tight mb-4">
+              Nursing Home Management System
+            </h1>
+            <p className="text-slate-500 text-sm leading-relaxed max-w-md">
+              Secure, efficient administrative management platform designed specifically for nursing homes, care centers, and clinical facilities.
+            </p>
+          </div>
+
+          <div className="my-8 flex justify-center items-center">
+            <img 
+              src="/activation_illustration.jpg" 
+              alt="Account Activation Process"
+              className="max-h-[300px] w-auto object-contain rounded-2xl shadow-sm mix-blend-multiply"
+            />
+          </div>
+
+          <div className="flex items-center gap-4 text-xs font-semibold text-slate-400">
+            <span>Enterprise Grade Security</span>
+            <span>•</span>
+            <span>2-Step Verification Ready</span>
+          </div>
+        </div>
+
+        {/* Right Side: Form Panel */}
+        <div className="w-full lg:w-1/2 p-8 md:p-12 flex flex-col justify-center">
+          <div className="mb-6">
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Activate Your Account</h2>
+            <p className="text-slate-500 text-sm mt-1">
+              Complete your account setup to access the system.
+            </p>
+          </div>
+
+          {/* Invitation validation check */}
+          {!hasValidInvite && (
+            <div className="mb-6 flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-700">
+              <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-rose-500" />
+              <div>
+                <h4 className="font-bold text-sm">Invalid or Expired Activation Link</h4>
+                <p className="text-xs text-rose-600/90 mt-0.5">
+                  The link you followed is missing required parameters or may have expired. Please verify your activation email or request a new one from your admin.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {errors.api && (
+            <div className="mb-6 flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-700">
+              <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-rose-500" />
+              <p className="text-xs font-medium leading-relaxed">{errors.api}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email (Read-Only) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Email Address</label>
+              <div className="relative">
+                <input
+                  type="email"
+                  readOnly
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-10 text-sm text-slate-500 outline-none cursor-not-allowed"
+                  value={email || "No invitation email provided"}
+                />
+                <Mail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded-full">
+                  Read-only
+                </span>
+              </div>
+            </div>
+
+            {/* New Password */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">New Password</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  className={`w-full rounded-xl border px-4 py-3 pl-10 text-sm transition-all outline-none focus:ring-2 ${
+                    errors.password ? "border-rose-300 focus:ring-rose-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                  placeholder="Enter a secure password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading || !hasValidInvite}
+                />
+                <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              {errors.password && <p className="text-[10px] font-bold text-rose-500">{errors.password}</p>}
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Confirm Password</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  className={`w-full rounded-xl border px-4 py-3 pl-10 text-sm transition-all outline-none focus:ring-2 ${
+                    errors.confirmPassword ? "border-rose-300 focus:ring-rose-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                  placeholder="Repeat your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading || !hasValidInvite}
+                />
+                <Lock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              {errors.confirmPassword && <p className="text-[10px] font-bold text-rose-500">{errors.confirmPassword}</p>}
+            </div>
+
+            {/* Password Requirements Panel */}
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password Security Requirements</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex items-center gap-2">
+                  <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center transition-all ${rules.length ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`}>
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </div>
+                  <span className={`text-xs ${rules.length ? "text-slate-800 font-semibold" : "text-slate-400"}`}>Min 8 characters</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center transition-all ${rules.uppercase ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`}>
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </div>
+                  <span className={`text-xs ${rules.uppercase ? "text-slate-800 font-semibold" : "text-slate-400"}`}>1 Uppercase letter</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center transition-all ${rules.lowercase ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`}>
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </div>
+                  <span className={`text-xs ${rules.lowercase ? "text-slate-800 font-semibold" : "text-slate-400"}`}>1 Lowercase letter</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center transition-all ${rules.number ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`}>
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </div>
+                  <span className={`text-xs ${rules.number ? "text-slate-800 font-semibold" : "text-slate-400"}`}>1 Number</span>
+                </div>
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <div className={`h-4.5 w-4.5 rounded-full flex items-center justify-center transition-all ${rules.special ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`}>
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </div>
+                  <span className={`text-xs ${rules.special ? "text-slate-800 font-semibold" : "text-slate-400"}`}>1 Special character (!@#$%^& etc.)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Phone Number */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Phone Number</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  className={`w-full rounded-xl border px-4 py-3 pl-10 text-sm transition-all outline-none focus:ring-2 ${
+                    errors.phoneNumber ? "border-rose-300 focus:ring-rose-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                  placeholder="+15551234567"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  disabled={isLoading || !hasValidInvite}
+                />
+                <Phone className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+              {errors.phoneNumber ? (
+                <p className="text-[10px] font-bold text-rose-500">{errors.phoneNumber}</p>
+              ) : (
+                <p className="text-[10px] text-slate-400 font-medium">Format: E.164 (e.g., +15551234567) - used for two-step OTP verification codes</p>
+              )}
+            </div>
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={isLoading || !hasValidInvite}
+              className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-500/10 hover:bg-blue-700 transition-all cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {isLoading ? "Activating Account..." : "Activate Account"}
+            </button>
+          </form>
+
+          {/* Secondary Link: Back to Login */}
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate("/login")}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
