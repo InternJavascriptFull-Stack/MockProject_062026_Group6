@@ -108,6 +108,7 @@ function App() {
 
                 <Route path="/care-plans" element={<CarePlanListPage />} />
                 <Route path="/care-plans/new" element={<CreateCarePlanPage />} />
+                <Route path="/care-plans/:id/edit" element={<CreateCarePlanPage />} />
                 <Route path="/care-plans/:id" element={<CarePlanPage />} />
                 <Route path="/care-plans/:id/review" element={<DonReviewPage />} />
                 <Route path="/care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />

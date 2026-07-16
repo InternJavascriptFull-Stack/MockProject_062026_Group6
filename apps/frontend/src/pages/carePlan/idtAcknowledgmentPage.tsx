@@ -1,47 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { CareAreaViewCard } from "./components/careAreaViewCard";
 import { APP_ROUTES } from "../../constants/appRoutes";
-import { session } from "../../utils/session";
+import { useCarePlan, useIdtAck } from "./services/apiHooks";
 
 export function IdtAcknowledgmentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [carePlan, setCarePlan] = useState<any>(null);
+
+  const { data: carePlan, isLoading, isError } = useCarePlan(id);
+  const idtAckMutation = useIdtAck();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetch(`http://localhost:3000/api/care-plans/${id}`, {
-      headers: { Authorization: `Bearer ${session.getAccessToken()}` }
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) setCarePlan(data.data);
-    })
-    .catch(err => console.error("Lỗi lấy Care Plan", err));
-  }, [id]);
-
   const handleAck = async () => {
+    if (!id) return;
     setIsSubmitting(true);
     try {
-      await fetch(`http://localhost:3000/api/care-plans/${id}/idt-ack`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.getAccessToken()}` 
-        },
-        body: JSON.stringify({ notes: "Đã đọc và xác nhận Care Plan" })
+      await idtAckMutation.mutateAsync({
+        id,
+        payload: { notes: "IDT Member acknowledged care plan" }
       });
-      alert("Xác nhận IDT thành công!");
       navigate(APP_ROUTES.CARE_PLANS);
-    } catch (err) {
-      alert("Có lỗi xảy ra!");
+    } catch (err: any) {
+      alert(err.message || "An error occurred during acknowledgment.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!carePlan) return <div className="p-8">Đang tải...</div>;
+  if (isLoading) return <div className="p-8">Loading care plan...</div>;
+  if (isError || !carePlan) return <div className="p-8 text-red-500">Failed to load care plan.</div>;
 
   const residentName = carePlan.resident ? `${carePlan.resident.firstName} ${carePlan.resident.lastName}` : "Unknown";
 
@@ -72,18 +59,26 @@ export function IdtAcknowledgmentPage() {
                 </span>
               </div>
 
-              {/* Thay vì Component phức tạp, ta dùng list để hiển thị cho chuẩn xác DB */}
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
                 <h3 className="mb-4 text-lg font-bold text-slate-900">Goals & Interventions</h3>
                 <div className="mb-6">
                   <h4 className="mb-3 font-bold text-slate-900">Goals</h4>
                   <ul className="space-y-2 text-sm text-slate-700">
-                    {carePlan.goals?.map((g: any) => (
-                      <li key={g.id} className="flex items-start gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                        {g.description}
-                      </li>
-                    ))}
+                    {carePlan.goals?.map((g: any) => {
+                      let parsed: any = {};
+                      try {
+                        parsed = JSON.parse(g.description);
+                      } catch {
+                        parsed = { goal: g.description };
+                      }
+                      return (
+                        <li key={g.id} className="flex items-start gap-2">
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                          <span className="font-semibold">{parsed.title ? parsed.title + ": " : ""}</span>
+                          {parsed.goal || g.description}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
                 <div>
@@ -119,7 +114,7 @@ export function IdtAcknowledgmentPage() {
                   disabled={isSubmitting}
                   className="mb-4 w-full rounded-md bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? "Đang xử lý..." : "Acknowledge & e-Sign"}
+                  {isSubmitting ? "Processing..." : "Acknowledge & e-Sign"}
                 </button>
               </div>
             </div>
