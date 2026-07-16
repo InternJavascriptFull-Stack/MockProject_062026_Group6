@@ -1,129 +1,103 @@
+import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { LoadingState, Notice, Panel, PrimaryButton, SecondaryButton, StatusBadge, WorkflowPage } from "../../components/workflow/WorkflowUi";
-import { carePlansService, type CarePlanDetail } from "../../services/carePlans";
+import { APP_ROUTES } from "../../constants/appRoutes";
+import { ActivityTimeline } from "./components/activityTimeline";
+import { CareAreaViewCard } from "./components/careAreaViewCard";
+import { CostEstimateCard } from "./components/carePlanSidePanels";
+import { ReviewCycleCard } from "./components/reviewCycleCard";
+import { AssignedTasksTable } from "./components/assignedTasksTable";
+import { session } from "../../utils/session";
 
 export function CarePlanPage() {
-    const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
-    const [carePlan, setCarePlan] = useState<CarePlanDetail | null>(null);
-    const [error, setError] = useState("");
+  const { id } = useParams<{ id: string }>();
+  const [carePlan, setCarePlan] = useState<any>(null);
 
-    useEffect(() => {
-        if (!id) return;
-        void carePlansService
-            .getById(id)
-            .then(setCarePlan)
-            .catch((loadError) => setError((loadError as Error).message));
-    }, [id]);
+  useEffect(() => {
+    fetch(`http://localhost:3000/api/care-plans/${id}`, {
+      headers: { Authorization: `Bearer ${session.getAccessToken()}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) setCarePlan(data.data);
+    });
+  }, [id]);
 
-    if (error)
-        return (
-            <WorkflowPage title="Care Plan">
-                <Notice type="error">{error}</Notice>
-            </WorkflowPage>
-        );
-    if (!carePlan)
-        return (
-            <WorkflowPage title="Care Plan">
-                <LoadingState label="Loading care plan..." />
-            </WorkflowPage>
-        );
+  if (!carePlan) return <div className="p-8">Loading...</div>;
 
-    const residentName = carePlan.resident ? `${carePlan.resident.firstName} ${carePlan.resident.lastName}` : "Unknown Resident";
+  const residentName = carePlan.resident ? `${carePlan.resident.firstName} ${carePlan.resident.lastName}` : "Unknown Resident";
 
-    return (
-        <WorkflowPage
-            breadcrumb="Care Planning > Detail"
-            title={`Care Plan — ${residentName}`}
-            description={`Room ${carePlan.resident?.roomNumber ?? "Unassigned"} · LOC ${carePlan.activeCareLevel?.name ?? "Not confirmed"}`}
-            actions={
-                <StatusBadge tone={carePlan.status.toLowerCase().includes("reject") ? "danger" : carePlan.status.toLowerCase().includes("active") ? "success" : "warning"}>
-                    {carePlan.status}
-                </StatusBadge>
-            }
-        >
-            <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-                <div className="space-y-5">
-                    <Panel title="Care Goals">
-                        <ul className="space-y-3">
-                            {carePlan.goals.map((goal) => (
-                                <li key={goal.id} className="rounded-lg border border-slate-200 p-3">
-                                    <p className="font-semibold text-slate-800">{goal.description}</p>
-                                    <p className="mt-1 text-xs text-slate-500">{goal.status}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </Panel>
-                    <Panel title="Interventions and Assigned Tasks">
-                        <div className="space-y-4">
-                            {carePlan.interventions.map((intervention) => (
-                                <div key={intervention.id} className="rounded-lg border border-slate-200 p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <p className="font-semibold text-slate-900">{intervention.description}</p>
-                                        <StatusBadge tone="info">{intervention.assignedRole}</StatusBadge>
-                                    </div>
-                                    <div className="mt-3 space-y-2 text-sm text-slate-600">
-                                        {intervention.tasks.length ? (
-                                            intervention.tasks.map((task) => (
-                                                <p key={task.id}>
-                                                    {task.task_type} · {task.status} · {new Date(task.scheduled_time).toLocaleString()}
-                                                </p>
-                                            ))
-                                        ) : (
-                                            <p>No tasks generated until the plan is approved and signed.</p>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </Panel>
-                </div>
+  // Map backend goals to UI care areas
+  const mappedCareAreas = carePlan.goals?.map((g: any, index: number) => ({
+    title: `Care Area ${index + 1}`,
+    badge: { text: "Active", variant: "green" as const },
+    goal: g.description,
+  })) || [];
 
-                <div className="space-y-5">
-                    <Panel title="Workflow Actions">
-                        <div className="space-y-3">
-                            <PrimaryButton className="w-full" onClick={() => navigate(`/care-plans/${carePlan.id}/review`)}>
-                                DON Review
-                            </PrimaryButton>
-                            <SecondaryButton className="w-full" onClick={() => navigate(`/care-plans/${carePlan.id}/acknowledge`)}>
-                                IDT Acknowledgment
-                            </SecondaryButton>
-                            <SecondaryButton className="w-full" onClick={() => navigate("/care-plans")}>
-                                Back to List
-                            </SecondaryButton>
-                        </div>
-                    </Panel>
-                    <Panel title="Review History">
-                        <div className="space-y-3 text-sm text-slate-600">
-                            {carePlan.reviews.length ? (
-                                carePlan.reviews.map((review) => (
-                                    <div key={review.id}>
-                                        <p className="font-semibold text-slate-800">{review.status}</p>
-                                        <p>{review.notes || "No notes"}</p>
-                                        <p className="text-xs">{new Date(review.reviewed_at).toLocaleString()}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <p>No reviews recorded.</p>
-                            )}
-                        </div>
-                    </Panel>
-                    <Panel title="IDT Sign-off">
-                        <div className="space-y-2 text-sm text-slate-600">
-                            {carePlan.idtAcks.length ? (
-                                carePlan.idtAcks.map((ack) => (
-                                    <p key={ack.id}>
-                                        {ack.user?.firstName} {ack.user?.lastName} · {new Date(ack.acknowledged_at).toLocaleString()}
-                                    </p>
-                                ))
-                            ) : (
-                                <p>Pending acknowledgments.</p>
-                            )}
-                        </div>
-                    </Panel>
-                </div>
+  const tasks = carePlan.interventions?.map((i: any) => ({
+    task: i.description,
+    freq: "Daily", // Default fallback if missing
+    owner: i.assignedRole || "CNA"
+  })) || [];
+
+  return (
+    <div className="flex h-[calc(100vh-80px)] flex-col bg-slate-50/50">
+      <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-6">
+            <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
+              <Link to={APP_ROUTES.CARE_PLANS} className="hover:underline">
+                Care Planning
+              </Link>
+              <span>&gt;</span>
+              <span>Detail</span>
+              <span>&gt;</span>
+              <span>{residentName}</span>
             </div>
-        </WorkflowPage>
-    );
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-bold text-slate-900">
+                Care Plan — {residentName}
+              </h1>
+              <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 uppercase">
+                {carePlan.status}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">
+              Room 204B · LOC Tier 3 · Created on {new Date(carePlan.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+
+          <div className="mb-8 border-b border-slate-200">
+            <nav className="-mb-px flex space-x-8">
+              <button className="border-b-2 border-blue-600 px-1 py-4 text-sm font-bold text-blue-600">
+                Overview
+              </button>
+              <button className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700">
+                Activity
+              </button>
+              <button className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700">
+                Cost
+              </button>
+            </nav>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+            <div className="min-w-0">
+              <div className="mb-4 text-sm font-bold text-slate-700">Care Areas</div>
+
+              {mappedCareAreas.length > 0 ? mappedCareAreas.map((area: any, idx: number) => (
+                <CareAreaViewCard key={idx} {...area} />
+              )) : <div className="text-sm text-slate-500 italic mb-4">No care areas defined.</div>}
+
+              <ActivityTimeline tasks={tasks} />
+            </div>
+
+            <div className="min-w-0 space-y-6">
+              <CostEstimateCard />
+              <ReviewCycleCard />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }

@@ -10,7 +10,6 @@ export const MOCK_CARE_PLANS: CarePlan[] = [
     lastReview: "2026-03-30",
     nextReview: "overdue",
     assigned: "Anna Lee",
-    createdAt: "2026-07-13T00:00:00.000Z"
   },
   {
     id: "CP-002",
@@ -21,7 +20,6 @@ export const MOCK_CARE_PLANS: CarePlan[] = [
     lastReview: "2026-04-04",
     nextReview: "2026-07-03",
     assigned: "Anna Lee",
-    createdAt: "2026-07-13T00:00:00.000Z"
   },
   {
     id: "CP-003",
@@ -32,7 +30,6 @@ export const MOCK_CARE_PLANS: CarePlan[] = [
     lastReview: "2026-04-08",
     nextReview: "2026-07-07",
     assigned: "Anna Lee",
-    createdAt: "2026-07-13T00:00:00.000Z"
   },
   {
     id: "CP-004",
@@ -43,7 +40,6 @@ export const MOCK_CARE_PLANS: CarePlan[] = [
     lastReview: "2026-05-20",
     nextReview: "2026-08-18",
     assigned: "Anna Lee",
-    createdAt: "2026-07-13T00:00:00.000Z"
   },
   {
     id: "CP-005",
@@ -54,7 +50,6 @@ export const MOCK_CARE_PLANS: CarePlan[] = [
     lastReview: null,
     nextReview: null,
     assigned: "Anna Lee",
-    createdAt: "2026-07-13T00:00:00.000Z"
   },
   {
     id: "CP-006",
@@ -65,6 +60,5 @@ export const MOCK_CARE_PLANS: CarePlan[] = [
     lastReview: null,
     nextReview: null,
     assigned: "Anna Lee",
-    createdAt: "2026-07-13T00:00:00.000Z"
-  }
+  },
 ];

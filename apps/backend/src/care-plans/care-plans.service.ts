@@ -1,337 +1,163 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
-import * as bcrypt from "bcrypt";
-import { PrismaService } from "../prisma/prisma.service.js";
-
-const DON_ROLES = new Set(["DON", "DIRECTOR_OF_NURSING", "ADMIN", "SYSTEM_ADMIN", "NHA"]);
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
 export class CarePlansService {
-    constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-    private async assertDonAccess(role?: string) {
-        if (!role || !DON_ROLES.has(role.toUpperCase())) {
-            throw new ForbiddenException("Only DON or Administrator users can perform this action.");
+  async findAll() {
+    const plans = await this.prisma.care_plans.findMany({
+      include: {
+        residents: true,
+        users: true,
+      },
+    });
+    return plans.map(p => ({
+      ...p,
+      residentId: p.resident_id,
+      createdBy: p.created_by,
+      significantChangeFlag: p.significant_change_flag,
+      isDeleted: p.is_deleted,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+      resident: p.residents ? { ...p.residents, firstName: p.residents.first_name, lastName: p.residents.last_name } : null,
+      creator: p.users,
+    }));
+  }
+
+  async getResidents() {
+    const res = await this.prisma.residents.findMany();
+    return res.map(r => ({
+      ...r,
+      firstName: r.first_name,
+      lastName: r.last_name,
+      isDeleted: r.is_deleted,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
+  }
+
+  async findOne(id: string) {
+    const cp = await this.prisma.care_plans.findUnique({
+      where: { id },
+      include: {
+        residents: true,
+        users: true,
+        care_goals: true,
+        care_interventions: {
+          include: { care_tasks: true }
+        },
+        care_plan_reviews: {
+          include: { users: true }
+        },
+        care_plan_signatures: {
+          include: { users: true }
+        },
+        idt_acknowledgments: {
+          include: { users: true }
         }
-    }
+      },
+    });
+    if (!cp) throw new NotFoundException('Care plan not found');
+    return {
+      ...cp,
+      residentId: cp.resident_id,
+      createdBy: cp.created_by,
+      significantChangeFlag: cp.significant_change_flag,
+      isDeleted: cp.is_deleted,
+      createdAt: cp.created_at,
+      updatedAt: cp.updated_at,
+      resident: cp.residents ? { ...cp.residents, firstName: cp.residents.first_name, lastName: cp.residents.last_name } : null,
+      creator: cp.users,
+      goals: cp.care_goals,
+      interventions: cp.care_interventions.map(i => ({
+        ...i,
+        assignedRole: i.assigned_role,
+        tasks: i.care_tasks
+      })),
+      reviews: cp.care_plan_reviews.map(r => ({ ...r, reviewer: r.users })),
+      signatures: cp.care_plan_signatures.map(s => ({ ...s, signer: s.users })),
+      idtAcks: cp.idt_acknowledgments.map(a => ({ ...a, user: a.users }))
+    };
+  }
 
-    private async checkChartLockByResidentId(residentId: string) {
-        const resident = await this.prisma.residents.findUnique({
-            where: { id: residentId },
-            select: { is_chart_locked: true },
-        });
-        if (!resident) {
-            throw new NotFoundException("Resident not found.");
+  async create(data: any, userId: string) {
+    return this.prisma.care_plans.create({
+      data: {
+        resident_id: data.residentId,
+        created_by: userId,
+        status: data.status || 'Draft',
+        care_goals: {
+          create: data.goals?.map((g: any) => ({ description: g.description, status: g.status || 'IN_PROGRESS' })) || []
+        },
+        care_interventions: {
+          create: data.interventions?.map((i: any) => ({ description: i.description, assigned_role: i.assignedRole })) || []
         }
-        if (resident.is_chart_locked) {
-            throw new ForbiddenException("Resident chart is locked. Modifications are not allowed.");
-        }
-    }
+      }
+    });
+  }
 
-    private async checkChartLockByCarePlanId(id: string) {
-        const carePlan = await this.prisma.care_plans.findUnique({
-            where: { id },
-            select: { resident_id: true },
-        });
-        if (!carePlan) {
-            throw new NotFoundException("Care plan not found.");
-        }
-        await this.checkChartLockByResidentId(carePlan.resident_id);
-    }
+  async update(id: string, data: any) {
+    return this.prisma.care_plans.update({
+      where: { id },
+      data: {
+        status: data.status,
+        significant_change_flag: data.significantChangeFlag,
+      }
+    });
+  }
 
-    private async getActiveLoc(residentId: string) {
-        return this.prisma.resident_care_level_history.findFirst({
-            where: { resident_id: residentId, end_date: null },
-            include: { care_levels: true },
-            orderBy: { start_date: "desc" },
-        });
-    }
+  async checkLocGate(id: string, data: any) {
+    const plan = await this.prisma.care_plans.findUnique({ where: { id } });
+    if (!plan) throw new NotFoundException('Care plan not found');
+    
+    // Simulate LOC gate logic
+    const hasWarning = data?.triggerGate === true;
+    return { success: !hasWarning, message: 'LOC Gate check completed', warnings: hasWarning ? ['LOC exceeded'] : [] };
+  }
 
-    async findAll() {
-        const plans = await this.prisma.care_plans.findMany({
-            where: { is_deleted: false },
-            include: {
-                residents: { include: { beds: { include: { rooms: true } } } },
-                users: true,
-                care_plan_reviews: { orderBy: { reviewed_at: "desc" }, take: 1 },
-            },
-            orderBy: { updated_at: "desc" },
-        });
+  async donReview(id: string, data: any, reviewerId: string) {
+    const review = await this.prisma.care_plan_reviews.create({
+      data: {
+        care_plan_id: id,
+        reviewer_id: reviewerId,
+        status: data.status, // APPROVED, REJECTED
+        notes: data.notes
+      }
+    });
+    
+    await this.prisma.care_plans.update({
+      where: { id },
+      data: { status: data.status === 'APPROVED' ? 'Approved' : 'Rejected' }
+    });
 
-        return Promise.all(
-            plans.map(async (plan) => {
-                const activeLoc = await this.getActiveLoc(plan.resident_id);
-                return {
-                    ...plan,
-                    residentId: plan.resident_id,
-                    createdBy: plan.created_by,
-                    significantChangeFlag: plan.significant_change_flag,
-                    isDeleted: plan.is_deleted,
-                    createdAt: plan.created_at,
-                    updatedAt: plan.updated_at,
-                    lastReviewAt: plan.care_plan_reviews[0]?.reviewed_at ?? null,
-                    nextReviewAt: plan.care_plan_reviews[0]?.reviewed_at ? new Date(plan.care_plan_reviews[0].reviewed_at.getTime() + 90 * 24 * 60 * 60 * 1000) : null,
-                    resident: plan.residents
-                        ? {
-                              ...plan.residents,
-                              firstName: plan.residents.first_name,
-                              lastName: plan.residents.last_name,
-                              roomNumber: plan.residents.beds?.rooms?.room_number ?? null,
-                          }
-                        : null,
-                    activeCareLevel: activeLoc
-                        ? {
-                              id: activeLoc.care_level_id.toString(),
-                              code: activeLoc.care_levels.level_code,
-                              name: activeLoc.care_levels.level_name,
-                          }
-                        : null,
-                    creator: plan.users,
-                };
-            }),
-        );
-    }
+    return review;
+  }
 
-    async getResidents() {
-        const residents = await this.prisma.residents.findMany({
-            where: { is_deleted: false },
-            include: { beds: { include: { rooms: true } } },
-            orderBy: [{ last_name: "asc" }, { first_name: "asc" }],
-        });
+  async eSign(id: string, data: any, signerId: string) {
+    const sig = await this.prisma.care_plan_signatures.create({
+      data: {
+        care_plan_id: id,
+        signer_id: signerId,
+        signature_token: data.signatureToken || 'dummy-token-123'
+      }
+    });
+    
+    await this.prisma.care_plans.update({
+      where: { id },
+      data: { status: 'Signed' }
+    });
 
-        return Promise.all(
-            residents.map(async (resident) => {
-                const activeLoc = await this.getActiveLoc(resident.id);
-                return {
-                    id: resident.id,
-                    firstName: resident.first_name,
-                    lastName: resident.last_name,
-                    roomNumber: resident.beds?.rooms?.room_number ?? null,
-                    chartLocked: resident.is_chart_locked,
-                    locConfirmed: Boolean(activeLoc),
-                    activeCareLevel: activeLoc
-                        ? {
-                              id: activeLoc.care_level_id.toString(),
-                              code: activeLoc.care_levels.level_code,
-                              name: activeLoc.care_levels.level_name,
-                          }
-                        : null,
-                };
-            }),
-        );
-    }
+    return sig;
+  }
 
-    async findOne(id: string) {
-        const carePlan = await this.prisma.care_plans.findUnique({
-            where: { id },
-            include: {
-                residents: { include: { beds: { include: { rooms: true } } } },
-                users: true,
-                care_goals: true,
-                care_interventions: { include: { care_tasks: true } },
-                care_plan_reviews: { include: { users: true }, orderBy: { reviewed_at: "desc" } },
-                care_plan_signatures: { include: { users: true }, orderBy: { signed_at: "desc" } },
-                idt_acknowledgments: { include: { users: true }, orderBy: { acknowledged_at: "desc" } },
-            },
-        });
-        if (!carePlan || carePlan.is_deleted) {
-            throw new NotFoundException("Care plan not found.");
-        }
-
-        const activeLoc = await this.getActiveLoc(carePlan.resident_id);
-        return {
-            ...carePlan,
-            residentId: carePlan.resident_id,
-            createdBy: carePlan.created_by,
-            significantChangeFlag: carePlan.significant_change_flag,
-            isDeleted: carePlan.is_deleted,
-            createdAt: carePlan.created_at,
-            updatedAt: carePlan.updated_at,
-            resident: {
-                ...carePlan.residents,
-                firstName: carePlan.residents.first_name,
-                lastName: carePlan.residents.last_name,
-                roomNumber: carePlan.residents.beds?.rooms?.room_number ?? null,
-            },
-            activeCareLevel: activeLoc
-                ? {
-                      id: activeLoc.care_level_id.toString(),
-                      code: activeLoc.care_levels.level_code,
-                      name: activeLoc.care_levels.level_name,
-                  }
-                : null,
-            creator: carePlan.users,
-            goals: carePlan.care_goals,
-            interventions: carePlan.care_interventions.map((intervention) => ({
-                ...intervention,
-                assignedRole: intervention.assigned_role,
-                tasks: intervention.care_tasks,
-            })),
-            reviews: carePlan.care_plan_reviews.map((review) => ({ ...review, reviewer: review.users })),
-            signatures: carePlan.care_plan_signatures.map((signature) => ({ ...signature, signer: signature.users })),
-            idtAcks: carePlan.idt_acknowledgments.map((acknowledgment) => ({ ...acknowledgment, user: acknowledgment.users })),
-        };
-    }
-
-    async create(data: any, userId: string) {
-        await this.checkChartLockByResidentId(data.residentId);
-        const activeLoc = await this.getActiveLoc(data.residentId);
-        if (!activeLoc) {
-            throw new ForbiddenException("Confirm LOC classification before creating a care plan.");
-        }
-        if (!data.goals?.length) {
-            throw new BadRequestException("At least one care goal is required.");
-        }
-        if (!data.interventions?.length) {
-            throw new BadRequestException("At least one care intervention is required.");
-        }
-
-        return this.prisma.care_plans.create({
-            data: {
-                resident_id: data.residentId,
-                created_by: userId,
-                status: data.status || "Draft",
-                care_goals: {
-                    create: data.goals.map((goal: any) => ({
-                        description: goal.description,
-                        status: goal.status || "IN_PROGRESS",
-                    })),
-                },
-                care_interventions: {
-                    create: data.interventions.map((intervention: any) => ({
-                        description: intervention.description,
-                        assigned_role: intervention.assignedRole,
-                    })),
-                },
-            },
-            include: { care_goals: true, care_interventions: true },
-        });
-    }
-
-    async update(id: string, data: any) {
-        await this.checkChartLockByCarePlanId(id);
-        return this.prisma.care_plans.update({
-            where: { id },
-            data: {
-                ...(data.status !== undefined && { status: data.status }),
-                ...(data.significantChangeFlag !== undefined && {
-                    significant_change_flag: data.significantChangeFlag,
-                }),
-            },
-        });
-    }
-
-    async checkLocGate(residentId: string) {
-        const resident = await this.prisma.residents.findUnique({
-            where: { id: residentId },
-            select: { id: true, first_name: true, last_name: true, is_chart_locked: true },
-        });
-        if (!resident) {
-            throw new NotFoundException("Resident not found.");
-        }
-        const activeLoc = await this.getActiveLoc(residentId);
-        return {
-            success: Boolean(activeLoc) && !resident.is_chart_locked,
-            blocked: !activeLoc || resident.is_chart_locked,
-            message: resident.is_chart_locked
-                ? "The resident chart is locked due to an active incident."
-                : activeLoc
-                  ? "LOC classification is confirmed."
-                  : "Confirm LOC classification before creating a care plan.",
-            resident: {
-                id: resident.id,
-                name: `${resident.first_name} ${resident.last_name}`,
-            },
-            activeCareLevel: activeLoc
-                ? {
-                      id: activeLoc.care_level_id.toString(),
-                      code: activeLoc.care_levels.level_code,
-                      name: activeLoc.care_levels.level_name,
-                  }
-                : null,
-        };
-    }
-
-    async donReview(id: string, data: any, reviewerId: string, role?: string) {
-        await this.assertDonAccess(role);
-        await this.checkChartLockByCarePlanId(id);
-        const review = await this.prisma.care_plan_reviews.create({
-            data: {
-                care_plan_id: id,
-                reviewer_id: reviewerId,
-                status: data.status,
-                notes: data.notes,
-            },
-        });
-        await this.prisma.care_plans.update({
-            where: { id },
-            data: { status: data.status === "APPROVED" ? "Approved - Signature Required" : "Rejected" },
-        });
-        return review;
-    }
-
-    async eSign(id: string, password: string, signerId: string, role?: string) {
-        await this.assertDonAccess(role);
-        await this.checkChartLockByCarePlanId(id);
-        const user = await this.prisma.user.findUnique({ where: { id: signerId } });
-        if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-            throw new UnauthorizedException("Electronic signature credentials are invalid.");
-        }
-        const latestReview = await this.prisma.care_plan_reviews.findFirst({
-            where: { care_plan_id: id },
-            orderBy: { reviewed_at: "desc" },
-        });
-        if (latestReview?.status !== "APPROVED") {
-            throw new BadRequestException("The care plan must be approved before e-signature.");
-        }
-
-        const signature = await this.prisma.care_plan_signatures.create({
-            data: {
-                care_plan_id: id,
-                signer_id: signerId,
-                signature_token: await bcrypt.hash(`${signerId}:${id}:${Date.now()}`, 10),
-            },
-        });
-
-        const interventions = await this.prisma.care_interventions.findMany({
-            where: { care_plan_id: id },
-            include: { care_tasks: true },
-        });
-        const baseTime = new Date();
-        baseTime.setHours(8, 0, 0, 0);
-        for (const [index, intervention] of interventions.entries()) {
-            if (intervention.care_tasks.length > 0) continue;
-            const scheduledTime = new Date(baseTime.getTime() + index * 60 * 60 * 1000);
-            await this.prisma.care_tasks.create({
-                data: {
-                    task_type: intervention.description.slice(0, 50),
-                    status: "PENDING",
-                    care_intervention_id: intervention.id,
-                    scheduled_time: scheduledTime,
-                },
-            });
-        }
-
-        await this.prisma.care_plans.update({
-            where: { id },
-            data: { status: "Active" },
-        });
-        return signature;
-    }
-
-    async idtAck(id: string, data: any, userId: string) {
-        await this.checkChartLockByCarePlanId(id);
-        const existing = await this.prisma.idt_acknowledgments.findFirst({
-            where: { care_plan_id: id, user_id: userId },
-        });
-        if (existing) {
-            return existing;
-        }
-        return this.prisma.idt_acknowledgments.create({
-            data: {
-                care_plan_id: id,
-                user_id: userId,
-                notes: data.notes,
-            },
-        });
-    }
+  async idtAck(id: string, data: any, userId: string) {
+    return this.prisma.idt_acknowledgments.create({
+      data: {
+        care_plan_id: id,
+        user_id: userId,
+        notes: data.notes
+      }
+    });
+  }
 }
