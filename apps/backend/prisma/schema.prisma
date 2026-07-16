@@ -21,16 +21,20 @@ model User {
   status                                                 String                     @default("ACTIVE", map: "DF__users__status__52593CB8") @db.VarChar(20)
   mfaEnabled                                             Boolean                    @default(false, map: "DF__users__mfa_enabl__5441852A") @map("mfa_enabled")
   lastLoginAt                                            DateTime?                  @map("last_login_at") @db.DateTimeOffset
-  mfaVerifiedAt                                          DateTime?                  @map("mfa_verified_at") @db.DateTimeOffset
   isDeleted                                              Boolean                    @default(false, map: "DF__users__is_delete__5535A963") @map("is_deleted")
   deletedAt                                              DateTime?                  @map("deleted_at") @db.DateTimeOffset
   createdAt                                              DateTime                   @default(dbgenerated("sysdatetimeoffset()"), map: "DF__users__created_a__5629CD9C") @map("created_at") @db.DateTimeOffset
   updatedAt                                              DateTime                   @default(dbgenerated("sysdatetimeoffset()"), map: "DF__users__updated_a__571DF1D5") @updatedAt @map("updated_at") @db.DateTimeOffset
+  mfaVerifiedAt                                          DateTime?                  @map("mfa_verified_at") @db.DateTimeOffset
   assessments                                            assessments[]
   audit_logs                                             audit_logs[]
+  care_plan_reviews                                      care_plan_reviews[]
+  care_plan_signs                                        care_plan_signatures[]
+  created_care_plans                                     care_plans[]               @relation("CarePlanCreator")
   care_tasks                                             care_tasks[]
   chart_lock_events                                      chart_lock_events[]
   clinical_records                                       clinical_records[]
+  idt_acks                                               idt_acknowledgments[]
   incidents                                              incidents[]
   medication_logs_medication_logs_administered_byTousers medication_logs[]          @relation("medication_logs_administered_byTousers")
   medication_logs_medication_logs_witnessed_byTousers    medication_logs[]          @relation("medication_logs_witnessed_byTousers")
@@ -43,12 +47,6 @@ model User {
   facilities                                             UserFacility[]
   role                                                   Role                       @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "FK__users__role_id__5165187F")
   vital_signs                                            vital_signs[]
-
-  // --- Care Plan Relations ---
-  created_care_plans care_plans[]           @relation("CarePlanCreator")
-  care_plan_reviews  care_plan_reviews[]
-  care_plan_signs    care_plan_signatures[]
-  idt_acks           idt_acknowledgments[]
 
   @@index([roleId], map: "idx_users_role_id")
   @@map("users")
@@ -94,20 +92,20 @@ model Facility {
   name                           String                           @db.NVarChar(200)
   licenseNumber                  String                           @map("license_number") @db.NVarChar(100)
   targetState                    String                           @map("target_state") @db.Char(2)
-  timezone                       String                           @default("America/Los_Angeles (Pacific)") @db.NVarChar(100)
   phoneNumber                    String?                          @map("phone_number") @db.NVarChar(20)
   isDeleted                      Boolean                          @default(false, map: "DF__facilitie__is_de__5CD6CB2B") @map("is_deleted")
   createdAt                      DateTime                         @default(dbgenerated("sysdatetimeoffset()"), map: "DF__facilitie__creat__5DCAEF64") @map("created_at") @db.DateTimeOffset
   updatedAt                      DateTime                         @default(dbgenerated("sysdatetimeoffset()"), map: "DF__facilitie__updat__5EBF139D") @updatedAt @map("updated_at") @db.DateTimeOffset
+  timezone                       String                           @default("America/Los_Angeles (Pacific)") @db.NVarChar(100)
   admissions                     admissions[]
   care_level_rates               care_level_rates[]
   addresses                      addresses?                       @relation(fields: [addressId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__facilitie__addre__5BE2A6F2")
+  facility_clinical_capabilities facility_clinical_capabilities[]
+  facility_room_rates            facility_room_rates[]
   rooms                          rooms[]
   shifts                         shifts[]
   staffing_configs               staffing_configs[]
   users                          UserFacility[]
-  facility_room_rates            facility_room_rates[]
-  facility_clinical_capabilities facility_clinical_capabilities[]
 
   @@map("facilities")
 }
@@ -299,9 +297,9 @@ model care_plans {
   care_interventions      care_interventions[]
   care_plan_reviews       care_plan_reviews[]
   care_plan_signatures    care_plan_signatures[]
-  idt_acknowledgments     idt_acknowledgments[]
-  users                   User?                  @relation(fields: [created_by], references: [id], name: "CarePlanCreator", onDelete: NoAction, onUpdate: NoAction)
+  users                   User?                  @relation("CarePlanCreator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   residents               residents              @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__care_plan__resid__531856C7")
+  idt_acknowledgments     idt_acknowledgments[]
 
   @@index([resident_id], map: "idx_care_plans_resident_id")
 }
@@ -329,8 +327,8 @@ model care_plan_reviews {
   status       String     @db.VarChar(20)
   notes        String?    @db.NVarChar(500)
   reviewed_at  DateTime   @default(now()) @db.DateTimeOffset
-  care_plans   care_plans @relation(fields: [care_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users        User       @relation(fields: [reviewer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  care_plans   care_plans @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction)
+  users        User       @relation(fields: [reviewer_id], references: [id], onUpdate: NoAction)
 }
 
 model care_plan_signatures {
@@ -339,8 +337,8 @@ model care_plan_signatures {
   signer_id       String     @db.UniqueIdentifier
   signature_token String     @db.NVarChar(512)
   signed_at       DateTime   @default(now()) @db.DateTimeOffset
-  care_plans      care_plans @relation(fields: [care_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users           User       @relation(fields: [signer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  care_plans      care_plans @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction)
+  users           User       @relation(fields: [signer_id], references: [id], onUpdate: NoAction)
 }
 
 model idt_acknowledgments {
@@ -349,8 +347,8 @@ model idt_acknowledgments {
   user_id         String     @db.UniqueIdentifier
   notes           String?    @db.NVarChar(500)
   acknowledged_at DateTime   @default(now()) @db.DateTimeOffset
-  care_plans      care_plans @relation(fields: [care_plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users           User       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  care_plans      care_plans @relation(fields: [care_plan_id], references: [id], onUpdate: NoAction)
+  users           User       @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 }
 
 model chart_lock_events {
@@ -360,11 +358,10 @@ model chart_lock_events {
   incident_id      String    @db.UniqueIdentifier
   unlocked_by      String?   @db.UniqueIdentifier
   event_time       DateTime  @default(dbgenerated("sysdatetimeoffset()"), map: "DF__chart_loc__event__3FD07829") @db.DateTimeOffset
+  lock_reason      String?   @db.NVarChar(Max)
+  locked_by        String?   @db.UniqueIdentifier
   incidents        incidents @relation(fields: [incident_id], references: [id], onUpdate: NoAction, map: "FK__chart_loc__incid__3DE82FB7")
   users            User?     @relation(fields: [unlocked_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__chart_loc__unloc__3EDC53F0")
-
-  locked_by   String? @db.UniqueIdentifier
-  lock_reason String? @db.NVarChar(Max)
 
   @@index([incident_id], map: "idx_chart_lock_events_incident_id")
 }
@@ -403,8 +400,8 @@ model contacts {
 model incident_severities {
   id                 BigInt        @id(map: "PK__incident__3213E83F9833F0D0") @default(autoincrement())
   level_name         String        @db.NVarChar(50)
-  description        String?       @db.NVarChar(500)
   chart_lock_trigger Boolean       @default(false, map: "DF__incident___chart__2CBDA3B5")
+  description        String?       @db.NVarChar(500)
   incidents          incidents[]
   sla_configs        sla_configs[]
 }
@@ -706,12 +703,12 @@ model shifts {
 }
 
 model sla_configs {
-  id                  BigInt              @id(map: "PK__sla_conf__3213E83F4EFF83C3") @default(autoincrement())
-  sla_window_hrs            Int
-  external_report_required Boolean @default(true)
-  regulatory_body           String? @db.NVarChar(200)
-  severity_id               BigInt
-  incident_severities incident_severities @relation(fields: [severity_id], references: [id], onUpdate: NoAction, map: "FK__sla_confi__sever__2F9A1060")
+  id                       BigInt              @id(map: "PK__sla_conf__3213E83F4EFF83C3") @default(autoincrement())
+  sla_window_hrs           Int
+  severity_id              BigInt
+  external_report_required Boolean             @default(true)
+  regulatory_body          String?             @db.NVarChar(200)
+  incident_severities      incident_severities @relation(fields: [severity_id], references: [id], onUpdate: NoAction, map: "FK__sla_confi__sever__2F9A1060")
 }
 
 model staffing_configs {
@@ -719,8 +716,8 @@ model staffing_configs {
   facility_id              String   @db.UniqueIdentifier
   min_hrs_per_resident_day Decimal  @db.Decimal(5, 2)
   warn_below_percentage    Int
-  shift_breakdown_json     String   @default("") @db.NVarChar(2000)
   created_at               DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__staffing___creat__6EF57B66") @db.DateTimeOffset
+  shift_breakdown_json     String   @default("") @db.NVarChar(2000)
   facilities               Facility @relation(fields: [facility_id], references: [id], onUpdate: NoAction, map: "FK__staffing___facil__6E01572D")
 
   @@index([facility_id], map: "idx_staffing_configs_facility_id")
@@ -743,4 +740,55 @@ model vital_signs {
   residents                residents @relation(fields: [resident_id], references: [id], onUpdate: NoAction, map: "FK__vital_sig__resid__4B7734FF")
 
   @@index([resident_id, recorded_at(sort: Desc)], map: "idx_vital_signs_resident_id_recorded_at")
+}
+
+model consumable_supplies {
+  id                   BigInt               @id(map: "PK__consumab__3213E83F28AFD24B") @default(autoincrement())
+  item_name            String               @db.NVarChar(200)
+  category_id          BigInt
+  facility_id          BigInt
+  stock_on_hand        Int                  @default(0, map: "DF__consumabl__stock__45A94D10")
+  total                Int                  @default(0, map: "DF__consumabl__total__47919582")
+  reorder_threshold    Int                  @default(0, map: "DF__consumabl__reord__4979DDF4")
+  unit_cost            Decimal              @default(0, map: "DF__consumabl__unit___4A6E022D") @db.Decimal(18, 2)
+  private_pay_rate     Decimal              @default(0, map: "DF__consumabl__priva__4B622666") @db.Decimal(18, 2)
+  status               String               @default("OK", map: "DF__consumabl__statu__4D4A6ED8") @db.VarChar(20)
+  is_deleted           Boolean              @default(false, map: "DF__consumabl__is_de__4E3E9311")
+  created_at           DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__consumabl__creat__4F32B74A") @db.DateTimeOffset
+  updated_at           DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__consumabl__updat__5026DB83") @db.DateTimeOffset
+  inventory_categories inventory_categories @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "FK_supplies_category")
+}
+
+model durable_medical_equipment {
+  id                   BigInt               @id(map: "PK__durable___3213E83F213A41EA") @default(autoincrement())
+  item_name            String               @db.NVarChar(200)
+  category_id          BigInt
+  asset_tag            String               @unique(map: "UQ__durable___1FACF043D076B361") @db.VarChar(50)
+  status               String               @default("AVAILABLE", map: "DF__durable_m__statu__3E082B48") @db.VarChar(30)
+  facility_id          BigInt
+  assigned_to_user     BigInt?
+  assigned_to_resident BigInt?
+  unit_value           Decimal              @default(0, map: "DF__durable_m__unit___3EFC4F81") @db.Decimal(18, 2)
+  is_deleted           Boolean              @default(false, map: "DF__durable_m__is_de__3FF073BA")
+  created_at           DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__durable_m__creat__40E497F3") @db.DateTimeOffset
+  updated_at           DateTime             @default(dbgenerated("sysdatetimeoffset()"), map: "DF__durable_m__updat__41D8BC2C") @db.DateTimeOffset
+  inventory_categories inventory_categories @relation(fields: [category_id], references: [id], onUpdate: NoAction, map: "FK_dme_category")
+}
+
+model incident_timelines {
+  id          BigInt   @id(map: "PK__incident__3213E83F2B6855E2") @default(autoincrement())
+  incident_id BigInt
+  action      String?  @db.VarChar(Max)
+  reason      String?  @db.VarChar(Max)
+  actor       BigInt?
+  createdAt   DateTime @default(dbgenerated("sysdatetimeoffset()"), map: "DF__incident___creat__3296789C") @db.DateTimeOffset
+}
+
+model inventory_categories {
+  id                        BigInt                      @id(map: "PK__inventor__3213E83F921B03F2") @default(autoincrement())
+  category_name             String                      @unique(map: "UQ__inventor__5189E25532BF8BB1") @db.NVarChar(100)
+  description               String?                     @db.NVarChar(500)
+  created_at                DateTime                    @default(dbgenerated("sysdatetimeoffset()"), map: "DF__inventory__creat__3943762B") @db.DateTimeOffset
+  consumable_supplies       consumable_supplies[]
+  durable_medical_equipment durable_medical_equipment[]
 }

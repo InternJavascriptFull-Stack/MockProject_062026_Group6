@@ -1,64 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { APP_ROUTES } from "../../constants/appRoutes";
 import { CarePlanFilters } from "./components/carePlanFilters";
 import { CarePlanSummaryCards } from "./components/carePlanSummaryCards";
 import { CarePlanTable } from "./components/carePlanTable";
-import { carePlanRepository } from "./services/carePlanRepository";
-import type { CarePlan, CarePlanListQuery, CarePlanStatus } from "./types";
+import { useCarePlans, useCarePlanSummary } from "./services/apiHooks";
+import type { CarePlanStatus } from "./types";
 
 export function CarePlanListPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CarePlanStatus | "all">("all");
-  const [carePlans, setCarePlans] = useState<CarePlan[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  
-  const [summary, setSummary] = useState({
+
+  const query = { search, status, page, pageSize: 5 };
+
+  const { data: listData, isLoading } = useCarePlans(query);
+  const { data: summaryData } = useCarePlanSummary();
+
+  const carePlans = listData?.items || [];
+  const total = listData?.total || 0;
+
+  const summary = summaryData || {
     total: 0,
     draftCount: 0,
     pendingCount: 0,
     rejectedCount: 0,
     reviewDueCount: 0,
-  });
-
-  const query = useMemo<CarePlanListQuery>(
-    () => ({
-      search,
-      status,
-      page,
-      pageSize: 5
-    }),
-    [search, status, page],
-  );
-
-  useEffect(() => {
-    let isActive = true;
-    setIsLoading(true);
-
-    carePlanRepository
-      .listCarePlans(query)
-      .then((result) => {
-        if (!isActive) return;
-        setCarePlans(result.items);
-        setTotal(result.total);
-      })
-      .finally(() => {
-        if (isActive) {
-          setIsLoading(false);
-        }
-      });
-      
-    // Fetch dashboard summary
-    carePlanRepository.getSummary().then(data => {
-      if (isActive) setSummary(data);
-    });
-
-    return () => {
-      isActive = false;
-    };
-  }, [query]);
+  };
 
   return (
     <div className="min-h-screen bg-white p-6 md:p-8">
@@ -80,19 +48,25 @@ export function CarePlanListPage() {
         status={status}
         onStatusChange={(val) => {
           setStatus(val as CarePlanStatus | "all");
-          setPage(1); // Reset to page 1 on filter
+          setPage(1); // Reset to page 1 on filter change
         }}
       />
 
-      <CarePlanSummaryCards 
-        total={summary.total} 
+      <CarePlanSummaryCards
+        total={summary.total}
         draftCount={summary.draftCount}
         pendingCount={summary.pendingCount}
         rejectedCount={summary.rejectedCount}
         reviewDueCount={summary.reviewDueCount}
       />
 
-      <CarePlanTable carePlans={carePlans} isLoading={isLoading} page={page} total={total} onPageChange={setPage} />
+      <CarePlanTable
+        carePlans={carePlans}
+        isLoading={isLoading}
+        page={page}
+        total={total}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

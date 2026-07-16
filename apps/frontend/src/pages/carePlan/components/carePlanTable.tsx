@@ -60,14 +60,29 @@ export function CarePlanTable({ carePlans, isLoading, page, total, onPageChange 
                 </td>
                 <td className="px-6 py-4 text-slate-600">{cp.assigned}</td>
                 <td className="px-6 py-4 text-right">
-                  {cp.status === "pending_review" ? (
+                  {cp.status === "approved" ? (
+                    <Link
+                      to={`${APP_ROUTES.CARE_PLANS}/${cp.id}/acknowledge`}
+                      className="font-bold !text-purple-600 hover:!text-purple-800 mr-4"
+                    >
+                      Acknowledge
+                    </Link>
+                  ) : cp.status === "pending_review" ? (
                     <Link
                       to={`${APP_ROUTES.CARE_PLANS}/${cp.id}/review`}
                       className="font-bold !text-orange-600 hover:!text-orange-800"
                     >
                       Review
                     </Link>
-                  ) : (
+                  ) : cp.status === "draft" || cp.status === "rejected" ? (
+                    <Link
+                      to={`${APP_ROUTES.CARE_PLANS}/${cp.id}/edit`}
+                      className="font-bold !text-blue-600 hover:!text-blue-800 mr-4"
+                    >
+                      Edit
+                    </Link>
+                  ) : null}
+                  {cp.status !== "pending_review" && (
                     <Link
                       to={`${APP_ROUTES.CARE_PLANS}/${cp.id}`}
                       className="font-bold !text-blue-600 hover:!text-blue-800"

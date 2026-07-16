@@ -1,198 +1,283 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Notice, Panel, PrimaryButton, SecondaryButton, WorkflowPage, fieldClassName, labelClassName } from "../../components/workflow/WorkflowUi";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { APP_ROUTES } from "../../constants/appRoutes";
-import { carePlansService, type CarePlanResident, type LocGateResult } from "../../services/carePlans";
+import { AssignedTasksTable } from "./components/assignedTasksTable";
+import type { TaskItem } from "./components/assignedTasksTable";
+import { CareAreaCard } from "./components/careAreaCard";
+import { CostEstimateCard, PlanStatusCard } from "./components/carePlanSidePanels";
+import { LocGateBanner } from "./components/locGateBanner";
+import {
+  useCarePlan,
+  useResidents,
+  useCreateCarePlan,
+  useUpdateCarePlan,
+  useCheckLocGate,
+} from "./services/apiHooks";
 
-type GoalInput = { id: string; description: string };
-type InterventionInput = { id: string; description: string; assignedRole: string };
+type CareArea = {
+  id: string;
+  title: string;
+  badge: { text: string; variant: "blue" | "gray" };
+  goal: string;
+  measure: string;
+  target: string;
+  tasks: string[];
+};
 
 export function CreateCarePlanPage() {
-    const navigate = useNavigate();
-    const [residents, setResidents] = useState<CarePlanResident[]>([]);
-    const [residentId, setResidentId] = useState("");
-    const [locGate, setLocGate] = useState<LocGateResult | null>(null);
-    const [goals, setGoals] = useState<GoalInput[]>([{ id: crypto.randomUUID(), description: "" }]);
-    const [interventions, setInterventions] = useState<InterventionInput[]>([{ id: crypto.randomUUID(), description: "", assignedRole: "CNA" }]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState("");
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = !!id;
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        void (async () => {
-            setIsLoading(true);
-            try {
-                const data = await carePlansService.getResidents();
-                setResidents(data);
-                if (data[0]) setResidentId(data[0].id);
-            } catch (loadError) {
-                setError((loadError as Error).message);
-            } finally {
-                setIsLoading(false);
-            }
-        })();
-    }, []);
+  const { data: residents = [], isLoading: isLoadingResidents } = useResidents();
+  const { data: existingPlan, isLoading: isLoadingPlan } = useCarePlan(id);
 
-    useEffect(() => {
-        if (!residentId) {
-            setLocGate(null);
-            return;
-        }
-        void carePlansService
-            .checkLocGate(residentId)
-            .then(setLocGate)
-            .catch((loadError) => setError((loadError as Error).message));
-    }, [residentId]);
+  const createMutation = useCreateCarePlan();
+  const updateMutation = useUpdateCarePlan();
+  const checkLocGateMutation = useCheckLocGate();
+  const isLocConfirmed = true;
 
-    const selectedResident = useMemo(() => residents.find((resident) => resident.id === residentId), [residentId, residents]);
+  const [residentId, setResidentId] = useState("");
+  const [careAreas, setCareAreas] = useState<CareArea[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [locWarning, setLocWarning] = useState<string | null>(null);
 
-    function updateGoal(id: string, description: string) {
-        setGoals((current) => current.map((goal) => (goal.id === id ? { ...goal, description } : goal)));
+  // Set default resident when list loads (create mode)
+  useEffect(() => {
+    if (!isEditMode && residents.length > 0 && !residentId) {
+      setResidentId(residents[0].id);
+    }
+  }, [residents, isEditMode, residentId]);
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (isEditMode && existingPlan) {
+      setResidentId(existingPlan.residentId);
+      setCareAreas(
+        (existingPlan.goals || []).map((g: any, idx: number) => {
+          let parsed: any = {};
+          try {
+            parsed = JSON.parse(g.description);
+            if (!parsed.goal) throw new Error("not json");
+          } catch {
+            parsed = { goal: g.description, title: `Care Area ${idx + 1}`, measure: "", target: "" };
+          }
+          return {
+            id: g.id || Date.now().toString() + Math.random(),
+            title: parsed.title || `Care Area ${idx + 1}`,
+            badge: { text: "Active", variant: "blue" as const },
+            goal: parsed.goal || "",
+            measure: parsed.measure || "",
+            target: parsed.target || "",
+            tasks: [],
+          };
+        }),
+      );
+      setTasks(
+        (existingPlan.interventions || []).map((i: any) => ({
+          task: i.description,
+          freq: "Daily",
+          owner: i.assignedRole || "CNA",
+        })),
+      );
+    }
+  }, [isEditMode, existingPlan]);
+
+  const handleAddArea = () => {
+    setCareAreas([
+      ...careAreas,
+      {
+        id: Date.now().toString(),
+        title: "",
+        badge: { text: "Manual", variant: "gray" as const },
+        goal: "",
+        measure: "",
+        target: "",
+        tasks: [],
+      },
+    ]);
+  };
+
+  const handleRemoveArea = (areaId: string) => {
+    setCareAreas(careAreas.filter((a) => a.id !== areaId));
+  };
+
+  const handleAreaChange = (areaId: string, field: string, value: any) => {
+    setCareAreas(careAreas.map((a) => (a.id === areaId ? { ...a, [field]: value } : a)));
+  };
+
+  const handleSubmit = async (targetStatus: string) => {
+    // Basic validation
+    if (!residentId) {
+      alert("Please select a resident.");
+      return;
+    }
+    if (careAreas.length === 0) {
+      alert("Please add at least one Care Area.");
+      return;
+    }
+    if (careAreas.some((a) => !a.goal.trim())) {
+      alert("Please enter a Goal for all Care Areas.");
+      return;
     }
 
-    function updateIntervention(id: string, patch: Partial<InterventionInput>) {
-        setInterventions((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    setIsSubmitting(true);
+    setLocWarning(null);
+
+    try {
+      const payload = {
+        residentId,
+        status: targetStatus === "Pending Review" ? "PENDING_REVIEW" : "DRAFT",
+        goals: careAreas.map((c) => ({
+          description: JSON.stringify({
+            title: c.title,
+            goal: c.goal,
+            measure: c.measure,
+            target: c.target,
+          }),
+        })),
+        interventions: tasks
+          .filter((t) => t.task.trim())
+          .map((t) => ({ description: t.task, assignedRole: t.owner })),
+      };
+
+      // Check LOC Gate before submitting for review
+      if (targetStatus === "Pending Review") {
+        const checkRes: any = await checkLocGateMutation.mutateAsync(payload);
+        if (!checkRes.success) {
+          const warning = checkRes.message + (checkRes.data?.length ? ": " + checkRes.data.join(", ") : "");
+          setLocWarning(warning);
+          alert("LOC Gate Check Failed: " + checkRes.message);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      if (isEditMode && id) {
+        await updateMutation.mutateAsync({ id, payload });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
+
+      navigate(APP_ROUTES.CARE_PLANS);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "An unexpected error occurred.");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
-    async function submit(status: "Draft" | "Pending Review") {
-        setError("");
-        const validGoals = goals.map((goal) => goal.description.trim()).filter(Boolean);
-        const validInterventions = interventions.filter((item) => item.description.trim());
-        if (!residentId || !validGoals.length || !validInterventions.length) {
-            setError("Select a resident and provide at least one goal and one intervention.");
-            return;
-        }
-        if (locGate?.blocked) {
-            setError(locGate.message);
-            return;
-        }
+  const locRate = 150 + careAreas.length * 20;
+  const roomRate = 185;
+  const tier = careAreas.length > 3 ? "Tier 3" : careAreas.length > 1 ? "Tier 2" : "Tier 1";
 
-        setIsSubmitting(true);
-        try {
-            const created = await carePlansService.create({
-                residentId,
-                status,
-                goals: validGoals.map((description) => ({ description })),
-                interventions: validInterventions.map((item) => ({
-                    description: item.description.trim(),
-                    assignedRole: item.assignedRole,
-                })),
-            });
-            navigate(`/care-plans/${created.id}`);
-        } catch (submitError) {
-            setError((submitError as Error).message);
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
+  if (isLoadingResidents || (isEditMode && isLoadingPlan)) {
+    return <div className="p-8 text-center text-slate-500">Loading...</div>;
+  }
 
-    return (
-        <WorkflowPage
-            breadcrumb="Care Planning > New Care Plan"
-            title="Create Care Plan"
-            description="Create resident-specific goals and interventions after the Level of Care has been confirmed."
-        >
-            <div className="space-y-5">
-                {error && <Notice type="error">{error}</Notice>}
-                {locGate && <Notice type={locGate.blocked ? "warning" : "success"}>{locGate.message}</Notice>}
+  return (
+    <div className="flex h-[calc(100vh-80px)] flex-col bg-slate-50/50">
+      <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="mx-auto max-w-6xl">
 
-                <Panel title="Resident and LOC Gate">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <label className={labelClassName}>
-                            Resident
-                            <select className={fieldClassName} value={residentId} onChange={(event) => setResidentId(event.target.value)} disabled={isLoading}>
-                                <option value="">Select resident</option>
-                                {residents.map((resident) => (
-                                    <option key={resident.id} value={resident.id}>
-                                        {resident.firstName} {resident.lastName} · Room {resident.roomNumber ?? "Unassigned"}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                            <p className="font-semibold">Current LOC</p>
-                            <p className="mt-1">{locGate?.activeCareLevel?.name ?? "Not confirmed"}</p>
-                            {selectedResident?.chartLocked && <p className="mt-2 font-semibold text-red-600">Resident chart is locked.</p>}
-                        </div>
-                    </div>
-                    {locGate?.blocked && residentId && (
-                        <PrimaryButton className="mt-4" type="button" onClick={() => navigate(`/residents/${residentId}/loc-classification`)}>
-                            Go to LOC Classification
-                        </PrimaryButton>
-                    )}
-                </Panel>
-
-                <Panel title="Care Goals" description="Define measurable care goals for the resident.">
-                    <div className="space-y-3">
-                        {goals.map((goal, index) => (
-                            <div key={goal.id} className="flex gap-3">
-                                <input
-                                    className={fieldClassName}
-                                    value={goal.description}
-                                    onChange={(event) => updateGoal(goal.id, event.target.value)}
-                                    placeholder={`Goal ${index + 1}`}
-                                />
-                                <SecondaryButton type="button" onClick={() => setGoals((current) => current.filter((item) => item.id !== goal.id))} disabled={goals.length === 1}>
-                                    Remove
-                                </SecondaryButton>
-                            </div>
-                        ))}
-                        <SecondaryButton type="button" onClick={() => setGoals((current) => [...current, { id: crypto.randomUUID(), description: "" }])}>
-                            Add Goal
-                        </SecondaryButton>
-                    </div>
-                </Panel>
-
-                <Panel title="Interventions and Daily Tasks" description="Each approved intervention generates a daily task after DON e-signature.">
-                    <div className="space-y-3">
-                        {interventions.map((item, index) => (
-                            <div key={item.id} className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-                                <input
-                                    className={fieldClassName}
-                                    value={item.description}
-                                    onChange={(event) => updateIntervention(item.id, { description: event.target.value })}
-                                    placeholder={`Intervention ${index + 1}`}
-                                />
-                                <select
-                                    className={fieldClassName}
-                                    value={item.assignedRole}
-                                    onChange={(event) => updateIntervention(item.id, { assignedRole: event.target.value })}
-                                >
-                                    <option value="CNA">CNA</option>
-                                    <option value="NURSE">Nurse</option>
-                                    <option value="DIETITIAN">Dietitian</option>
-                                    <option value="PHYSICAL_THERAPIST">Physical Therapist</option>
-                                </select>
-                                <SecondaryButton
-                                    type="button"
-                                    onClick={() => setInterventions((current) => current.filter((entry) => entry.id !== item.id))}
-                                    disabled={interventions.length === 1}
-                                >
-                                    Remove
-                                </SecondaryButton>
-                            </div>
-                        ))}
-                        <SecondaryButton
-                            type="button"
-                            onClick={() => setInterventions((current) => [...current, { id: crypto.randomUUID(), description: "", assignedRole: "CNA" }])}
-                        >
-                            Add Intervention
-                        </SecondaryButton>
-                    </div>
-                </Panel>
-
-                <div className="flex justify-end gap-3">
-                    <SecondaryButton type="button" onClick={() => navigate(APP_ROUTES.CARE_PLANS)}>
-                        Cancel
-                    </SecondaryButton>
-                    <SecondaryButton type="button" disabled={isSubmitting || Boolean(locGate?.blocked)} onClick={() => void submit("Draft")}>
-                        Save Draft
-                    </SecondaryButton>
-                    <PrimaryButton type="button" disabled={isSubmitting || Boolean(locGate?.blocked)} onClick={() => void submit("Pending Review")}>
-                        {isSubmitting ? "Saving..." : "Submit for DON Review"}
-                    </PrimaryButton>
-                </div>
+          {locWarning && (
+            <div className="mb-6 flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4 text-orange-700">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-orange-700 text-xs font-bold">!</span>
+              <span className="text-sm font-bold">{locWarning}</span>
             </div>
-        </WorkflowPage>
-    );
+          )}
+
+          <div className="mb-6">
+            <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
+              <Link to={APP_ROUTES.CARE_PLANS} className="hover:underline">
+                Care Planning
+              </Link>
+              <span>&gt;</span>
+              <span>{isEditMode ? "Edit Care Plan" : "New Care Plan"}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <h1 className="text-3xl font-bold text-slate-900">
+                {isEditMode ? "Edit Care Plan" : "New Care Plan"}
+              </h1>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                Draft
+              </span>
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <label className="text-sm font-bold text-slate-700">Resident:</label>
+              <select
+                value={residentId}
+                onChange={(e) => setResidentId(e.target.value)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+              >
+                <option value="" disabled>Select a Resident</option>
+                {(residents as any[]).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.firstName} {r.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+            <div className="min-w-0">
+              <LocGateBanner tier={tier} />
+
+              <div className="mb-4 text-sm font-bold text-slate-700">
+                Care Areas (Master Care Plan — §3.0)
+              </div>
+
+              {careAreas.map((area) => (
+                <CareAreaCard
+                  key={area.id}
+                  {...area}
+                  onRemove={() => handleRemoveArea(area.id)}
+                  onChange={(field, val) => handleAreaChange(area.id, field, val)}
+                />
+              ))}
+
+              <button
+                type="button"
+                onClick={handleAddArea}
+                className="mt-2 flex h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                + Add Care Area
+              </button>
+
+              <AssignedTasksTable tasks={tasks} onChange={setTasks} />
+            </div>
+
+            <div className="min-w-0 space-y-6">
+              <CostEstimateCard tier={tier} locRate={locRate} roomRate={roomRate} />
+              <PlanStatusCard />
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer className="border-t border-slate-200 bg-white p-4">
+        <div className="mx-auto flex max-w-6xl justify-end gap-4">
+          <button
+            type="button"
+            onClick={() => handleSubmit("Draft")}
+            disabled={isSubmitting}
+            className="h-10 rounded-md border border-slate-200 bg-white px-6 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Save Draft
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit("Pending Review")}
+            disabled={isSubmitting}
+            className="h-10 rounded-md bg-blue-600 px-6 text-sm font-bold !text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSubmitting ? "Submitting..." : "Submit for Review"}
+          </button>
+        </div>
+      </footer>
+    </div>
+  );
 }

@@ -4,8 +4,8 @@ import type { CarePlanStatus } from "../types";
 
 export function CarePlanStatusBadge({ status }: { status: CarePlanStatus }) {
   // Map to match the visual colors in Figma
-  const getBadgeStyle = (status: CarePlanStatus) => {
-    switch (status) {
+  const getBadgeStyle = (status: string) => {
+    switch (status.toLowerCase().replace(" ", "_")) {
       case "needs_update":
       case "rejected":
         return "border-red-200 bg-red-50 text-red-700";
@@ -30,7 +30,7 @@ export function CarePlanStatusBadge({ status }: { status: CarePlanStatus }) {
         status
       )}`}
     >
-      {CARE_PLAN_STATUS_LABEL[status]}
+      {CARE_PLAN_STATUS_LABEL[status.toLowerCase().replace(" ", "_") as CarePlanStatus] || status}
     </div>
   );
 }
