@@ -22,8 +22,9 @@ export interface ApiResponse<T> {
 export interface LoginResponse {
     email: string;
     twoStepRequired: boolean;
-    tempCode?: string;
+    /** Hint for the last 2 digits of the registered phone, e.g. "••34" */
     phoneHint?: string | null;
+    /** OTP bypass — only populated when SKIP_OTP=true on backend (dev only) */
     accessToken?: string;
     refreshToken?: string;
     user?: User;
@@ -38,5 +39,5 @@ export interface VerifyOtpResponse {
 
 /** Returned by POST /api/auth/resend-otp */
 export interface ResendOtpResponse {
-    tempCode?: string;
+    // empty — resend only confirms delivery, no token data exposed
 }

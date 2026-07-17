@@ -46,7 +46,7 @@ import UserList from "./pages/users/UserList";
 
 function AdminPage({ children }: { children: React.ReactNode }) {
     return (
-        <ProtectedRoute allowedRoles={["System Admin"]}>
+        <ProtectedRoute allowedRoles={["Administrator", "System Admin"]}>
             <AdminLayout>{children}</AdminLayout>
         </ProtectedRoute>
     );
@@ -59,19 +59,110 @@ function App() {
             <Route path="/activate" element={<Activation />} />
             <Route path="/verify-otp" element={<TwoStepVerification />} />
 
-            <Route path="/admin/users" element={<AdminPage><UserList /></AdminPage>} />
-            <Route path="/admin/users/create" element={<AdminPage><UserForm /></AdminPage>} />
-            <Route path="/admin/users/:id/edit" element={<AdminPage><UserForm /></AdminPage>} />
-            <Route path="/admin/roles" element={<AdminPage><RoleMatrix /></AdminPage>} />
-            <Route path="/admin/data" element={<AdminPage><DemoSeeder /></AdminPage>} />
-            <Route path="/admin/facility" element={<AdminPage><FacilitySettingsPage /></AdminPage>} />
-            <Route path="/admin/loc-rates" element={<AdminPage><LocRateTablePage /></AdminPage>} />
-            <Route path="/admin/staffing" element={<AdminPage><StaffingRatioPage /></AdminPage>} />
-            <Route path="/admin/incident-severity" element={<AdminPage><IncidentSeverityLevels /></AdminPage>} />
-            <Route path="/admin/sla-config" element={<AdminPage><SlaConfiguration /></AdminPage>} />
-            <Route path="/admin/equipment" element={<AdminPage><EquipmentInventory /></AdminPage>} />
-            <Route path="/admin/equipment/add" element={<AdminPage><EquipmentForm /></AdminPage>} />
-            <Route path="/admin/equipment/:id/edit" element={<AdminPage><EquipmentForm /></AdminPage>} />
+            <Route
+                path="/admin/users"
+                element={
+                    <AdminPage>
+                        <UserList />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/users/create"
+                element={
+                    <AdminPage>
+                        <UserForm />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/users/:id/edit"
+                element={
+                    <AdminPage>
+                        <UserForm />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/roles"
+                element={
+                    <AdminPage>
+                        <RoleMatrix />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/data"
+                element={
+                    <AdminPage>
+                        <DemoSeeder />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/facility"
+                element={
+                    <AdminPage>
+                        <FacilitySettingsPage />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/loc-rates"
+                element={
+                    <AdminPage>
+                        <LocRateTablePage />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/staffing"
+                element={
+                    <AdminPage>
+                        <StaffingRatioPage />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/incident-severity"
+                element={
+                    <AdminPage>
+                        <IncidentSeverityLevels />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/sla-config"
+                element={
+                    <AdminPage>
+                        <SlaConfiguration />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/equipment"
+                element={
+                    <AdminPage>
+                        <EquipmentInventory />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/equipment/add"
+                element={
+                    <AdminPage>
+                        <EquipmentForm />
+                    </AdminPage>
+                }
+            />
+            <Route
+                path="/admin/equipment/:id/edit"
+                element={
+                    <AdminPage>
+                        <EquipmentForm />
+                    </AdminPage>
+                }
+            />
 
             <Route
                 path="/dashboard"
