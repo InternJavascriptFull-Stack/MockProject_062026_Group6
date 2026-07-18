@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/authUi/input";
-import { EQUIPMENT_STATUS_LABEL, type EquipmentStatus } from "@/constants/inventory";
+import { INVENTORY_STATUS_LABEL, type InventoryStatus } from "@/constants/inventory";
 import { equipmentSupplyService, type EquipmentSupplyDTO } from "@/services/equipmentSupply";
 
 export default function EquipmentInventory() {
@@ -44,8 +44,8 @@ export default function EquipmentInventory() {
         });
     }, [items, search, itemType]);
 
-    function statusLabel(status: EquipmentStatus): string {
-        return EQUIPMENT_STATUS_LABEL[status] ?? status.replaceAll("_", " ");
+    function statusLabel(status: InventoryStatus): string {
+        return INVENTORY_STATUS_LABEL[status] ?? status.replaceAll("_", " ");
     }
 
     return (

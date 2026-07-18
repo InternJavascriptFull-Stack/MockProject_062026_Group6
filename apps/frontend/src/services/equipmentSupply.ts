@@ -1,4 +1,4 @@
-import type { EquipmentStatus } from "../constants/inventory";
+import type { InventoryStatus, ItemType } from "../constants/inventory";
 import { apiClient } from "./apiClient";
 
 export interface EquipmentSupplyDTO {
@@ -9,13 +9,32 @@ export interface EquipmentSupplyDTO {
     unit: string;
     quantityOnHand: number;
     reorderThreshold: number;
-    status: EquipmentStatus;
-    itemType?: "EQUIPMENT" | "SUPPLY";
+    status: InventoryStatus;
+    itemType: ItemType;
     lastUpdatedAt?: string | null;
 }
 
-export type EquipmentSupplyCreateInput = Omit<EquipmentSupplyDTO, "id" | "lastUpdatedAt">;
-export type EquipmentSupplyUpdateInput = Omit<EquipmentSupplyCreateInput, "code" | "itemType">;
+// POST body — equipment needs an asset tag (code); supplies need stock fields.
+export interface EquipmentSupplyCreateInput {
+    itemType: ItemType;
+    name: string;
+    category: string;
+    status: InventoryStatus;
+    code?: string;
+    unit?: string;
+    quantityOnHand?: number;
+    reorderThreshold?: number;
+    unitValue?: number;
+}
+
+// PUT body — code and itemType are immutable after creation.
+export interface EquipmentSupplyUpdateInput {
+    name: string;
+    category: string;
+    status: InventoryStatus;
+    quantityOnHand?: number;
+    reorderThreshold?: number;
+}
 
 export interface EquipmentSupplyListParams {
     search?: string;
@@ -44,7 +63,7 @@ export const equipmentSupplyService = {
         return data;
     },
 
-    async updateStatus(id: string, status: EquipmentStatus): Promise<EquipmentSupplyDTO> {
+    async updateStatus(id: string, status: InventoryStatus): Promise<EquipmentSupplyDTO> {
         const { data } = await apiClient.patch(`/equipment-supplies/${id}/status`, { status });
         return data;
     },
