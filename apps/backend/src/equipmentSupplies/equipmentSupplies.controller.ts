@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard.js";
-import { CreateEquipmentSupplyDto, UpdateEquipmentSupplyDto, UpdateEquipmentSupplyStatusDto } from "./dto/equipment-supply.dto.js";
-import { EquipmentSuppliesService } from "./equipment-supplies.service.js";
+import { CreateEquipmentSupplyDto, UpdateEquipmentSupplyDto, UpdateEquipmentSupplyStatusDto } from "./dto/equipmentSupply.dto.js";
+import { EquipmentSuppliesService } from "./equipmentSupplies.service.js";
 
 @ApiTags("equipment-supplies")
 @ApiBearerAuth()

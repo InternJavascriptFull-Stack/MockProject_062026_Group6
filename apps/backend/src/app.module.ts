@@ -10,7 +10,7 @@ import { CarePlansModule } from "./care-plans/care-plans.module.js";
 import { CareTasksModule } from "./care-tasks/care-tasks.module.js";
 import { DashboardModule } from "./dashboard/dashboard.module.js";
 import { DemoDataModule } from "./demo-data/demo-data.module.js";
-import { EquipmentSuppliesModule } from "./equipment-supplies/equipment-supplies.module.js";
+import { EquipmentSuppliesModule } from "./equipmentSupplies/equipmentSupplies.module.js";
 import { FacilitiesModule } from "./facilities/facilities.module.js";
 import { IncidentSeveritiesModule } from "./incident-severities/incident-severities.module.js";
 import { IncidentsModule } from "./incidents/incidents.module.js";
