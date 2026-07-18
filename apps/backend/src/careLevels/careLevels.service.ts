@@ -84,40 +84,44 @@ export class CareLevelsService {
     async updateCareLevel(id: string, dto: UpdateCareLevelDto) {
         const facility = await this.getDefaultFacility();
         const careLevelId = BigInt(id);
-        const careLevel = await this.prisma.care_levels.findUnique({
-            where: { id: careLevelId },
-        });
 
-        if (!careLevel) {
-            throw new NotFoundException(`Care level with ID ${id} not found.`);
-        }
+        await this.prisma.$transaction(async (transaction) => {
+            const careLevel = await transaction.care_levels.findUnique({
+                where: { id: careLevelId },
+            });
 
-        const currentRate = await this.prisma.care_level_rates.findFirst({
-            where: {
-                care_level_id: careLevelId,
-                facility_id: facility.id,
-                effective_to: null,
-            },
-        });
+            if (!careLevel) {
+                throw new NotFoundException(`Care level with ID ${id} not found.`);
+            }
 
-        if (!currentRate) {
-            await this.prisma.care_level_rates.create({
-                data: {
+            const currentRate = await transaction.care_level_rates.findFirst({
+                where: {
                     care_level_id: careLevelId,
                     facility_id: facility.id,
-                    daily_rate: dto.dailyRate,
-                    effective_from: this.toDate(dto.effectiveFrom ?? '2026-01-01'),
+                    effective_to: null,
                 },
             });
-        } else {
-            await this.prisma.care_level_rates.update({
+
+            if (!currentRate) {
+                await transaction.care_level_rates.create({
+                    data: {
+                        care_level_id: careLevelId,
+                        facility_id: facility.id,
+                        daily_rate: dto.dailyRate,
+                        effective_from: this.toDate(dto.effectiveFrom ?? '2026-01-01'),
+                    },
+                });
+                return;
+            }
+
+            await transaction.care_level_rates.update({
                 where: { id: currentRate.id },
                 data: {
                     daily_rate: dto.dailyRate,
                     effective_from: dto.effectiveFrom ? this.toDate(dto.effectiveFrom) : undefined,
                 },
             });
-        }
+        });
 
         return this.getCareLevels();
     }

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service.js";
 import {
     CreateRoomDto,
@@ -66,6 +67,230 @@ export class FacilitiesService {
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")
             .replace(/^-|-$/g, "");
+    }
+
+    private async updateFacilityProfile(
+        transaction: Prisma.TransactionClient,
+        facilityId: string,
+        dto: UpdateFacilitySettingsDto,
+    ) {
+        await transaction.facility.update({
+            where: { id: facilityId },
+            data: {
+                name: dto.name,
+                licenseNumber: dto.licenseNumber,
+                targetState: dto.targetState,
+                timezone: dto.timezone,
+                phoneNumber: dto.phoneNumber,
+            } as any,
+        });
+    }
+
+    private async upsertFacilityRooms(
+        transaction: Prisma.TransactionClient,
+        facilityId: string,
+        rooms: NonNullable<UpdateFacilitySettingsDto["rooms"]>,
+    ) {
+        for (const room of rooms) {
+            if (room.roomId && room.bedId) {
+                await transaction.rooms.update({
+                    where: { id: room.roomId },
+                    data: {
+                        room_number: room.roomNumber,
+                        room_type: room.roomType,
+                        is_deleted: false,
+                    },
+                });
+                await transaction.beds.update({
+                    where: { id: room.bedId },
+                    data: {
+                        bed_number: room.bedNumber,
+                        status: room.status,
+                    },
+                });
+                continue;
+            }
+
+            const savedRoom = await transaction.rooms.upsert({
+                where: {
+                    facility_id_room_number: {
+                        facility_id: facilityId,
+                        room_number: room.roomNumber,
+                    },
+                },
+                update: { room_type: room.roomType, is_deleted: false },
+                create: {
+                    facility_id: facilityId,
+                    room_number: room.roomNumber,
+                    room_type: room.roomType,
+                },
+            });
+
+            const savedBed = await transaction.beds.findFirst({
+                where: { room_id: savedRoom.id, bed_number: room.bedNumber },
+            });
+
+            if (savedBed) {
+                await transaction.beds.update({
+                    where: { id: savedBed.id },
+                    data: { status: room.status },
+                });
+            } else {
+                await transaction.beds.create({
+                    data: {
+                        room_id: savedRoom.id,
+                        bed_number: room.bedNumber,
+                        status: room.status,
+                    },
+                });
+            }
+        }
+    }
+
+    private async upsertFacilityRoomRates(
+        transaction: Prisma.TransactionClient,
+        facilityId: string,
+        roomRates: NonNullable<UpdateFacilitySettingsDto["roomRates"]>,
+    ) {
+        for (const rate of roomRates) {
+            await (transaction as any).facility_room_rates.upsert({
+                where: {
+                    facility_id_room_type: {
+                        facility_id: facilityId,
+                        room_type: rate.roomType,
+                    },
+                },
+                update: {
+                    daily_rate: rate.dailyRate,
+                    effective_from: this.toDate(rate.effectiveFrom),
+                },
+                create: {
+                    facility_id: facilityId,
+                    room_type: rate.roomType,
+                    daily_rate: rate.dailyRate,
+                    effective_from: this.toDate(rate.effectiveFrom),
+                },
+            });
+        }
+    }
+
+    private async upsertFacilityCapabilities(
+        transaction: Prisma.TransactionClient,
+        facilityId: string,
+        capabilities: NonNullable<UpdateFacilitySettingsDto["capabilities"]>,
+    ) {
+        for (const capability of capabilities) {
+            await (transaction as any).facility_clinical_capabilities.upsert({
+                where: {
+                    facility_id_capability: {
+                        facility_id: facilityId,
+                        capability: capability.capability,
+                    },
+                },
+                update: {
+                    supported: capability.supported,
+                    note: capability.note ?? null,
+                },
+                create: {
+                    facility_id: facilityId,
+                    capability: capability.capability,
+                    supported: capability.supported,
+                    note: capability.note ?? null,
+                },
+            });
+        }
+    }
+
+    private mapDetailedCapabilities(dto: DetailedFacilitySettingsDto) {
+        return dto.capabilities.map((capability) => ({
+            capability: capability.label,
+            supported: capability.supported,
+            note: capability.note,
+        }));
+    }
+
+    private async upsertFacilityAddress(
+        transaction: Prisma.TransactionClient,
+        addressId: bigint | number | null | undefined,
+        dto: DetailedFacilitySettingsDto,
+    ) {
+        const addressData = {
+            street_line1: dto.address.streetLine1,
+            street_line2: dto.address.streetLine2,
+            city: dto.address.city,
+            state: dto.address.state.toUpperCase().slice(0, 2),
+            zip_code: dto.address.zipCode,
+        };
+
+        if (addressId) {
+            await transaction.addresses.update({
+                where: { id: addressId },
+                data: {
+                    ...addressData,
+                    updated_at: new Date(),
+                },
+            });
+
+            return addressId;
+        }
+
+        const address = await transaction.addresses.create({
+            data: {
+                ...addressData,
+                address_type: "FACILITY",
+            },
+        });
+
+        return address.id;
+    }
+
+    private async updateDetailedFacilityProfile(
+        transaction: Prisma.TransactionClient,
+        facilityId: string,
+        addressId: bigint | number,
+        dto: DetailedFacilitySettingsDto,
+    ) {
+        await transaction.facility.update({
+            where: { id: facilityId },
+            data: {
+                name: dto.name,
+                licenseNumber: dto.licenseNumber,
+                targetState: dto.targetState.toUpperCase().slice(0, 2),
+                phoneNumber: dto.phoneNumber,
+                timezone: dto.timezone,
+                addressId,
+            } as any,
+        });
+    }
+
+    private async createFacilitySettingsAuditLog(
+        transaction: Prisma.TransactionClient,
+        facilityId: string,
+        dto: DetailedFacilitySettingsDto,
+        userId?: string,
+    ) {
+        if (!userId) {
+            return;
+        }
+
+        const user = await transaction.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return;
+        }
+
+        await transaction.audit_logs.create({
+            data: {
+                table_name: "facility_settings",
+                record_id: facilityId,
+                action: "UPDATE",
+                performed_by: userId,
+                new_data: JSON.stringify({
+                    timezone: dto.timezone,
+                    capabilities: dto.capabilities,
+                    roomRates: dto.roomRates,
+                }),
+            },
+        });
     }
 
     async findAll() {
@@ -227,117 +452,18 @@ export class FacilitiesService {
         const facility = await this.resolveFacility(facilityId);
 
         await this.prisma.$transaction(async (transaction) => {
-            await transaction.facility.update({
-                where: { id: facility.id },
-                data: {
-                    name: dto.name,
-                    licenseNumber: dto.licenseNumber,
-                    targetState: dto.targetState,
-                    timezone: dto.timezone,
-                    phoneNumber: dto.phoneNumber,
-                } as any,
-            });
+            await this.updateFacilityProfile(transaction, facility.id, dto);
 
             if (dto.rooms) {
-                for (const room of dto.rooms) {
-                    if (room.roomId && room.bedId) {
-                        await transaction.rooms.update({
-                            where: { id: room.roomId },
-                            data: {
-                                room_number: room.roomNumber,
-                                room_type: room.roomType,
-                                is_deleted: false,
-                            },
-                        });
-                        await transaction.beds.update({
-                            where: { id: room.bedId },
-                            data: {
-                                bed_number: room.bedNumber,
-                                status: room.status,
-                            },
-                        });
-                        continue;
-                    }
-
-                    const savedRoom = await transaction.rooms.upsert({
-                        where: {
-                            facility_id_room_number: {
-                                facility_id: facility.id,
-                                room_number: room.roomNumber,
-                            },
-                        },
-                        update: { room_type: room.roomType, is_deleted: false },
-                        create: {
-                            facility_id: facility.id,
-                            room_number: room.roomNumber,
-                            room_type: room.roomType,
-                        },
-                    });
-
-                    const savedBed = await transaction.beds.findFirst({
-                        where: { room_id: savedRoom.id, bed_number: room.bedNumber },
-                    });
-                    if (savedBed) {
-                        await transaction.beds.update({
-                            where: { id: savedBed.id },
-                            data: { status: room.status },
-                        });
-                    } else {
-                        await transaction.beds.create({
-                            data: {
-                                room_id: savedRoom.id,
-                                bed_number: room.bedNumber,
-                                status: room.status,
-                            },
-                        });
-                    }
-                }
+                await this.upsertFacilityRooms(transaction, facility.id, dto.rooms);
             }
 
             if (dto.roomRates) {
-                for (const rate of dto.roomRates) {
-                    await (transaction as any).facility_room_rates.upsert({
-                        where: {
-                            facility_id_room_type: {
-                                facility_id: facility.id,
-                                room_type: rate.roomType,
-                            },
-                        },
-                        update: {
-                            daily_rate: rate.dailyRate,
-                            effective_from: this.toDate(rate.effectiveFrom),
-                        },
-                        create: {
-                            facility_id: facility.id,
-                            room_type: rate.roomType,
-                            daily_rate: rate.dailyRate,
-                            effective_from: this.toDate(rate.effectiveFrom),
-                        },
-                    });
-                }
+                await this.upsertFacilityRoomRates(transaction, facility.id, dto.roomRates);
             }
 
             if (dto.capabilities) {
-                for (const capability of dto.capabilities) {
-                    await (transaction as any).facility_clinical_capabilities.upsert({
-                        where: {
-                            facility_id_capability: {
-                                facility_id: facility.id,
-                                capability: capability.capability,
-                            },
-                        },
-                        update: {
-                            supported: capability.supported,
-                            note: capability.note ?? null,
-                        },
-                        create: {
-                            facility_id: facility.id,
-                            capability: capability.capability,
-                            supported: capability.supported,
-                            note: capability.note ?? null,
-                        },
-                    });
-                }
+                await this.upsertFacilityCapabilities(transaction, facility.id, dto.capabilities);
             }
         });
 
@@ -348,103 +474,15 @@ export class FacilitiesService {
         const facility = await this.resolveFacility(id);
 
         await this.prisma.$transaction(async (transaction) => {
-            let addressId = facility.addressId;
+            const addressId = await this.upsertFacilityAddress(transaction, facility.addressId, dto);
+            await this.updateDetailedFacilityProfile(transaction, id, addressId, dto);
+            await this.upsertFacilityCapabilities(transaction, id, this.mapDetailedCapabilities(dto));
 
-            if (addressId) {
-                await transaction.addresses.update({
-                    where: { id: addressId },
-                    data: {
-                        street_line1: dto.address.streetLine1,
-                        street_line2: dto.address.streetLine2,
-                        city: dto.address.city,
-                        state: dto.address.state.toUpperCase().slice(0, 2),
-                        zip_code: dto.address.zipCode,
-                        updated_at: new Date(),
-                    },
-                });
-            } else {
-                const address = await transaction.addresses.create({
-                    data: {
-                        street_line1: dto.address.streetLine1,
-                        street_line2: dto.address.streetLine2,
-                        city: dto.address.city,
-                        state: dto.address.state.toUpperCase().slice(0, 2),
-                        zip_code: dto.address.zipCode,
-                        address_type: "FACILITY",
-                    },
-                });
-                addressId = address.id;
+            if (dto.roomRates?.length) {
+                await this.upsertFacilityRoomRates(transaction, id, dto.roomRates);
             }
 
-            await transaction.facility.update({
-                where: { id },
-                data: {
-                    name: dto.name,
-                    licenseNumber: dto.licenseNumber,
-                    targetState: dto.targetState.toUpperCase().slice(0, 2),
-                    phoneNumber: dto.phoneNumber,
-                    timezone: dto.timezone,
-                    addressId,
-                } as any,
-            });
-
-            for (const capability of dto.capabilities) {
-                await (transaction as any).facility_clinical_capabilities.upsert({
-                    where: {
-                        facility_id_capability: {
-                            facility_id: id,
-                            capability: capability.label,
-                        },
-                    },
-                    update: { supported: capability.supported, note: capability.note ?? null },
-                    create: {
-                        facility_id: id,
-                        capability: capability.label,
-                        supported: capability.supported,
-                        note: capability.note ?? null,
-                    },
-                });
-            }
-
-            for (const rate of dto.roomRates ?? []) {
-                await (transaction as any).facility_room_rates.upsert({
-                    where: {
-                        facility_id_room_type: {
-                            facility_id: id,
-                            room_type: rate.roomType,
-                        },
-                    },
-                    update: {
-                        daily_rate: rate.dailyRate,
-                        effective_from: this.toDate(rate.effectiveFrom),
-                    },
-                    create: {
-                        facility_id: id,
-                        room_type: rate.roomType,
-                        daily_rate: rate.dailyRate,
-                        effective_from: this.toDate(rate.effectiveFrom),
-                    },
-                });
-            }
-
-            if (userId) {
-                const user = await transaction.user.findUnique({ where: { id: userId } });
-                if (user) {
-                    await transaction.audit_logs.create({
-                        data: {
-                            table_name: "facility_settings",
-                            record_id: id,
-                            action: "UPDATE",
-                            performed_by: userId,
-                            new_data: JSON.stringify({
-                                timezone: dto.timezone,
-                                capabilities: dto.capabilities,
-                                roomRates: dto.roomRates,
-                            }),
-                        },
-                    });
-                }
-            }
+            await this.createFacilitySettingsAuditLog(transaction, id, dto, userId);
         });
 
         return this.getSettings(id);
