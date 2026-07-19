@@ -1,24 +1,28 @@
-import React, { useState } from "react";
-import { session } from "../../utils/session";
+import React from "react";
+import { Navigate } from "react-router-dom";
+import { useAuthStore } from "../../utils/session";
+import { USER_ROLE } from "../../constants/userRole";
 import { NurseDashboard } from "./NurseDashboard";
 import { DonDashboard } from "./DonDashboard";
 import { CnaDashboard } from "./CnaDashboard";
-import type { User } from "../../types/auth";
 
 export default function DashboardRouter() {
-  const [user] = useState<User | null>(session.getUser());
+    const user = useAuthStore((state) => state.user);
 
-  if (!user) return null;
+    if (!user) return <Navigate to="/login" replace />;
 
-  const roleName = user.roleName?.toLowerCase() || "";
+    const roleName = user.roleName?.toUpperCase() || "";
 
-  if (roleName.includes("nurse") && !roleName.includes("director") && !roleName.includes("admin")) {
-    return <NurseDashboard />;
-  }
-  if (roleName.includes("cna") || roleName.includes("assistant")) {
-    return <CnaDashboard />;
-  }
-  
-  // Default to DON / Admin
-  return <DonDashboard />;
+    if (roleName.includes("NURSE")) {
+        return <NurseDashboard />;
+    }
+    
+    // We assume any CNA-related role string is caught by the constant, 
+    // or if the DB strictly uses "CNA"
+    if (roleName.includes("CNA")) {
+        return <CnaDashboard />;
+    }
+    
+    // Default to DON / Admin
+    return <DonDashboard />;
 }

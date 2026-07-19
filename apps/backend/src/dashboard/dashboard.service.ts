@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
-
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+import { CUTOFF_DAYS, DAY_IN_MS, STATUS } from "./dashboard.constants.js";
 
 @Injectable()
 export class DashboardService {
@@ -17,25 +16,57 @@ export class DashboardService {
         return date;
     }
 
-    async getNurseDashboard(_userId: string) {
+    async getNurseDashboard(userId: string) {
         const today = this.startOfToday();
-        const assessmentCutoff = new Date(today.getTime() - 14 * DAY_IN_MS);
-        const reviewCutoff = new Date(today.getTime() - 90 * DAY_IN_MS);
+        const assessmentCutoff = new Date(today.getTime() - CUTOFF_DAYS.ASSESSMENT * DAY_IN_MS);
+        const reviewCutoff = new Date(today.getTime() - CUTOFF_DAYS.REVIEW * DAY_IN_MS);
 
         const residents = await this.prisma.residents.findMany({
-            where: { is_deleted: false, status: "ACTIVE" },
-            include: {
-                beds: { include: { rooms: true } },
-                assessments: { orderBy: { created_at: "desc" }, take: 1 },
-                resident_care_level_history: { where: { end_date: null }, take: 1 },
-                care_plans: { where: { is_deleted: false }, orderBy: { updated_at: "desc" }, take: 1 },
+            where: { 
+                is_deleted: false, 
+                status: STATUS.ACTIVE,
+                admissions: {
+                    some: {
+                        facilities: {
+                            users: { some: { userId } }
+                        }
+                    }
+                }
+            },
+            select: {
+                first_name: true,
+                last_name: true,
+                beds: { select: { rooms: { select: { room_number: true } } } },
+                assessments: { orderBy: { created_at: "desc" }, take: 1, select: { created_at: true } },
+                resident_care_level_history: { where: { end_date: null }, take: 1, select: { id: true } },
+                care_plans: { where: { is_deleted: false }, orderBy: { updated_at: "desc" }, take: 1, select: { updated_at: true, status: true } },
             },
         });
+
+        const metrics = residents.reduce(
+            (acc, resident) => {
+                const latestAssessment = resident.assessments[0];
+                const hasLocHistory = resident.resident_care_level_history.length > 0;
+                const latestPlan = resident.care_plans[0];
+
+                if (!latestAssessment || latestAssessment.created_at < assessmentCutoff) acc.assessmentsDue++;
+                if (resident.assessments.length && !hasLocHistory) acc.locAwaitingConfirm++;
+                if (!latestPlan || [STATUS.DRAFT, STATUS.REJECTED].includes(latestPlan.status)) acc.carePlansToSubmit++;
+                if (latestPlan && latestPlan.updated_at < reviewCutoff) acc.reassessmentsDue++;
+
+                return acc;
+            },
+            { assessmentsDue: 0, locAwaitingConfirm: 0, carePlansToSubmit: 0, reassessmentsDue: 0 }
+        );
+
         const openIncidents = await this.prisma.incidents.findMany({
-            where: { status: { not: "CLOSED" } },
-            include: {
-                residents: { include: { beds: { include: { rooms: true } } } },
-                incident_severities: true,
+            where: { status: { not: STATUS.CLOSED } },
+            select: {
+                incident_type: true,
+                reported_at: true,
+                status: true,
+                residents: { select: { first_name: true, last_name: true, beds: { select: { rooms: { select: { room_number: true } } } } } },
+                incident_severities: { select: { level_name: true } },
             },
             orderBy: { reported_at: "desc" },
             take: 5,
@@ -47,13 +78,7 @@ export class DashboardService {
                 const latestPlan = resident.care_plans[0];
                 const fullName = `${resident.first_name} ${resident.last_name}`;
                 if (!latestAssessment || latestAssessment.created_at < assessmentCutoff) {
-                    return {
-                        resident: fullName,
-                        room: this.roomNumber(resident),
-                        task: "Initial or 14-day assessment is due",
-                        status: latestAssessment ? "Overdue" : "Not started",
-                        type: "overdue",
-                    };
+                    return { resident: fullName, room: this.roomNumber(resident), task: "Initial or 14-day assessment is due", status: latestAssessment ? "Overdue" : "Not started", type: "overdue" };
                 }
                 if (!resident.resident_care_level_history.length) {
                     return { resident: fullName, room: this.roomNumber(resident), task: "LOC classification awaiting confirmation", status: "Pending Review", type: "warning" };
@@ -71,10 +96,7 @@ export class DashboardService {
         return {
             success: true,
             data: {
-                assessmentsDue: residents.filter((resident) => !resident.assessments[0] || resident.assessments[0].created_at < assessmentCutoff).length,
-                locAwaitingConfirm: residents.filter((resident) => resident.assessments.length && !resident.resident_care_level_history.length).length,
-                carePlansToSubmit: residents.filter((resident) => !resident.care_plans[0] || ["Draft", "Rejected"].includes(resident.care_plans[0].status)).length,
-                reassessmentsDue: residents.filter((resident) => resident.care_plans[0]?.updated_at < reviewCutoff).length,
+                ...metrics,
                 assignedResidentsDueSoon: dueResidents,
                 openIncidents: openIncidents.map((incident) => ({
                     type: incident.incident_type.replaceAll("_", " "),
@@ -87,30 +109,47 @@ export class DashboardService {
         };
     }
 
-    async getDonDashboard(_userId: string) {
+    async getDonDashboard() {
         const today = this.startOfToday();
-        const reviewCutoff = new Date(today.getTime() - 90 * DAY_IN_MS);
-        const pendingPlans = await this.prisma.care_plans.findMany({
-            where: { is_deleted: false, status: { in: ["Pending Review", "Approved - Signature Required"] } },
-            include: {
-                residents: { include: { beds: { include: { rooms: true } } } },
-                users: true,
+        const reviewCutoff = new Date(today.getTime() - CUTOFF_DAYS.REVIEW * DAY_IN_MS);
+        
+        const pendingPlansPromise = this.prisma.care_plans.findMany({
+            where: { is_deleted: false, status: { in: [STATUS.PENDING_REVIEW, STATUS.APPROVED_SIGNATURE] } },
+            select: {
+                id: true,
+                updated_at: true,
+                residents: { 
+                    select: { 
+                        first_name: true, 
+                        last_name: true, 
+                        beds: { select: { rooms: { select: { room_number: true } } } },
+                        resident_care_level_history: {
+                            where: { end_date: null },
+                            select: { care_levels: { select: { level_name: true } } },
+                            take: 1
+                        }
+                    } 
+                },
+                users: { select: { firstName: true, lastName: true } },
             },
             orderBy: { updated_at: "asc" },
             take: 10,
         });
-        const [openIncidents, overdueIncidents, totalBeds, activeResidents, reassessmentsDue, staffingConfig, activeLocHistory] = await Promise.all([
-            this.prisma.incidents.count({ where: { status: { not: "CLOSED" } } }),
-            this.prisma.incidents.count({ where: { status: { not: "CLOSED" }, sla_deadline: { lt: new Date() } } }),
+
+        const [pendingPlans, openIncidents, overdueIncidents, totalBeds, activeResidents, reassessmentsDue, staffingConfig, activeLocHistory, pendingAuthorizations, medicareAlertsCount] = await Promise.all([
+            pendingPlansPromise,
+            this.prisma.incidents.count({ where: { status: { not: STATUS.CLOSED } } }),
+            this.prisma.incidents.count({ where: { status: { not: STATUS.CLOSED }, sla_deadline: { lt: new Date() } } }),
             this.prisma.beds.count(),
-            this.prisma.residents.count({ where: { is_deleted: false, status: "ACTIVE" } }),
+            this.prisma.residents.count({ where: { is_deleted: false, status: STATUS.ACTIVE } }),
             this.prisma.care_plans.count({ where: { is_deleted: false, updated_at: { lt: reviewCutoff } } }),
             this.prisma.staffing_configs.findFirst({ orderBy: { created_at: "desc" } }),
             this.prisma.resident_care_level_history.findMany({
                 where: { end_date: null },
-                include: {
+                select: {
                     care_levels: {
-                        include: {
+                        select: {
+                            level_name: true,
                             care_level_rates: {
                                 where: {
                                     effective_from: { lte: today },
@@ -118,19 +157,26 @@ export class DashboardService {
                                 },
                                 orderBy: { effective_from: "desc" },
                                 take: 1,
+                                select: { daily_rate: true },
                             },
                         },
                     },
                 },
             }),
+            this.prisma.invoices.count({ where: { status: "DRAFT", is_deleted: false } }),
+            this.prisma.invoices.count({ where: { is_deleted: false, medicare_covered_amount: { gt: 0 }, status: { not: STATUS.CLOSED } } })
         ]);
 
-        const tierMap = new Map<string, number>();
-        let estimatedDailyRevenue = 0;
-        for (const history of activeLocHistory) {
-            tierMap.set(history.care_levels.level_name, (tierMap.get(history.care_levels.level_name) ?? 0) + 1);
-            estimatedDailyRevenue += Number(history.care_levels.care_level_rates[0]?.daily_rate ?? 0);
-        }
+        const { tierMap, estimatedDailyRevenue } = activeLocHistory.reduce(
+            (acc, history) => {
+                const levelName = history.care_levels.level_name;
+                acc.tierMap.set(levelName, (acc.tierMap.get(levelName) ?? 0) + 1);
+                acc.estimatedDailyRevenue += Number(history.care_levels.care_level_rates[0]?.daily_rate ?? 0);
+                return acc;
+            },
+            { tierMap: new Map<string, number>(), estimatedDailyRevenue: 0 }
+        );
+        
         const occupancyRate = totalBeds ? Number(((activeResidents / totalBeds) * 100).toFixed(1)) : 0;
 
         return {
@@ -149,7 +195,7 @@ export class DashboardService {
                     room: this.roomNumber(plan.residents),
                     submittedBy: plan.users ? `${plan.users.firstName} ${plan.users.lastName}` : "Unassigned",
                     submittedDate: plan.updated_at.toISOString().slice(0, 10),
-                    locTier: "Confirmed LOC",
+                    locTier: plan.residents.resident_care_level_history[0]?.care_levels?.level_name ?? "Pending LOC",
                     waiting: `${Math.max(0, Math.floor((Date.now() - plan.updated_at.getTime()) / (60 * 60 * 1000)))}h`,
                 })),
                 censusAndLocMix: {
@@ -161,8 +207,8 @@ export class DashboardService {
                 billingSnapshot: {
                     estDailyRevenue: estimatedDailyRevenue,
                     estMonthlyRevenue: estimatedDailyRevenue * 30,
-                    pendingAuthorizations: await this.prisma.invoices.count({ where: { status: "DRAFT", is_deleted: false } }),
-                    medicare100DayCapAlerts: 0,
+                    pendingAuthorizations,
+                    medicare100DayCapAlerts: medicareAlertsCount,
                 },
             },
         };
@@ -174,7 +220,7 @@ export class DashboardService {
         const tasks = await this.prisma.care_tasks.findMany({
             where: {
                 scheduled_time: { gte: today, lt: tomorrow },
-                OR: [{ assigned_cna_id: userId }, { assigned_cna_id: null }],
+                assigned_cna_id: userId,
             },
             include: {
                 care_interventions: {
@@ -218,10 +264,10 @@ export class DashboardService {
 
     async getSummaryDashboard() {
         const [totalResidents, totalBeds, openIncidents, pendingAssessments, staffingConfigs] = await Promise.all([
-            this.prisma.residents.count({ where: { is_deleted: false, status: "ACTIVE" } }),
+            this.prisma.residents.count({ where: { is_deleted: false, status: STATUS.ACTIVE } }),
             this.prisma.beds.count(),
-            this.prisma.incidents.count({ where: { status: { not: "CLOSED" } } }),
-            this.prisma.residents.count({ where: { is_deleted: false, status: "ACTIVE", assessments: { none: {} } } }),
+            this.prisma.incidents.count({ where: { status: { not: STATUS.CLOSED } } }),
+            this.prisma.residents.count({ where: { is_deleted: false, status: STATUS.ACTIVE, assessments: { none: {} } } }),
             this.prisma.staffing_configs.count(),
         ]);
         return {

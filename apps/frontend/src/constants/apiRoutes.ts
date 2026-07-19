@@ -12,4 +12,8 @@ export const API_ROUTES = {
     EQUIPMENT_SUPPLIES: "/api/equipment-supplies",
     INCIDENT_SEVERITIES: "/api/incident-severities",
     SLA_CONFIGURATIONS: "/api/sla-configurations",
+    DASHBOARD_NURSE: "/dashboard/nurse",
+    DASHBOARD_DON: "/dashboard/don",
+    DASHBOARD_CNA: "/dashboard/cna",
+    DASHBOARD_SUMMARY: "/dashboard/summary",
 } as const;
