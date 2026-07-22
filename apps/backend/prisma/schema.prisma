@@ -106,6 +106,7 @@ model Facility {
   shifts                         shifts[]
   staffing_configs               staffing_configs[]
   users                          UserFacility[]
+  holidays                       holidays[]
 
   @@map("facilities")
 }
@@ -792,3 +793,24 @@ model inventory_categories {
   consumable_supplies       consumable_supplies[]
   durable_medical_equipment durable_medical_equipment[]
 }
+
+model holidays {
+  id                  BigInt    @id @default(autoincrement())
+  facility_id         String?   @db.UniqueIdentifier
+  name                String    @db.NVarChar(200)
+  date_type           String    @default("FIXED") @db.VarChar(20)
+  month               Int?
+  day                 Int?
+  floating_rule       String?   @db.NVarChar(100)
+  repeats_annually    Boolean   @default(true)
+  is_active           Boolean   @default(true)
+  is_federal_read_only Boolean  @default(false)
+  created_by          String?   @db.UniqueIdentifier
+  updated_by          String?   @db.UniqueIdentifier
+  created_at          DateTime  @default(dbgenerated("sysdatetimeoffset()")) @db.DateTimeOffset
+  updated_at          DateTime  @default(dbgenerated("sysdatetimeoffset()")) @updatedAt @db.DateTimeOffset
+  facilities          Facility? @relation(fields: [facility_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("holidays")
+}
+

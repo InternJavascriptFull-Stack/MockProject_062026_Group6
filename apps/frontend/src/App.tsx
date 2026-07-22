@@ -164,17 +164,7 @@ function App() {
                 }
             />
 
-            <Route
-                path="/dashboard"
-                element={
-                    <ProtectedRoute>
-                        <AdminLayout>
-                            <DashboardRouter />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route path="/dashboard/admin" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard/admin" element={<Navigate to="/admin/users" replace />} />
 
             <Route
                 element={
@@ -183,16 +173,38 @@ function App() {
                     </ProtectedRoute>
                 }
             >
+                <Route path="/dashboard" element={<DashboardRouter />} />
                 <Route path="/residents" element={<ResidentListPage />} />
-                <Route path="/residents/create" element={<ResidentFormPage />} />
+                <Route
+                    path="/residents/create"
+                    element={
+                        <ProtectedRoute allowedRoles={["Admission", "Admin"]}>
+                            <ResidentFormPage />
+                        </ProtectedRoute>
+                    }
+                />
                 <Route path="/residents/reception" element={<ResidentReceptionPage />} />
                 <Route path="/residents/:id" element={<ResidentProfileDetailPage />} />
-                <Route path="/residents/:id/edit" element={<ResidentFormPage />} />
+                <Route
+                    path="/residents/:id/edit"
+                    element={
+                        <ProtectedRoute allowedRoles={["Admission", "Admin"]}>
+                            <ResidentFormPage />
+                        </ProtectedRoute>
+                    }
+                />
                 <Route path="/residents/:residentId/loc-classification" element={<LocClassificationPage />} />
                 <Route path="/residents/:residentId/loc-history" element={<LocHistoryPage />} />
 
                 <Route path="/admissions/pre-screening" element={<ResidentReceptionPage />} />
-                <Route path="/admissions/new" element={<AdmissionFormPage />} />
+                <Route
+                    path="/admissions/new"
+                    element={
+                        <ProtectedRoute allowedRoles={["Admission", "Admin"]}>
+                            <AdmissionFormPage />
+                        </ProtectedRoute>
+                    }
+                />
                 <Route path="/assessments/new" element={<InitialAssessmentPage />} />
                 <Route path="/assessments/history" element={<AssessmentHistoryPage />} />
                 <Route path="/reassessments/new" element={<ReassessmentPage />} />
@@ -201,7 +213,14 @@ function App() {
                 <Route path="/care-plans/new" element={<CreateCarePlanPage />} />
                 <Route path="/care-plans/:id/edit" element={<CreateCarePlanPage />} />
                 <Route path="/care-plans/:id" element={<CarePlanPage />} />
-                <Route path="/care-plans/:id/review" element={<DonReviewPage />} />
+                <Route
+                    path="/care-plans/:id/review"
+                    element={
+                        <ProtectedRoute allowedRoles={["DON", "Admin"]}>
+                            <DonReviewPage />
+                        </ProtectedRoute>
+                    }
+                />
                 <Route path="/care-plans/:id/acknowledge" element={<IdtAcknowledgmentPage />} />
 
                 <Route path="/care-tasks/today" element={<DailyTaskListPage />} />
@@ -212,8 +231,22 @@ function App() {
                 <Route path="/incidents" element={<IncidentList />} />
                 <Route path="/incidents/:id" element={<IncidentDetail />} />
                 <Route path="/incidents/:id/lock-confirm" element={<ChartLockConfirmation />} />
-                <Route path="/incidents/:id/external-report" element={<ExternalReportPage />} />
-                <Route path="/incidents/:id/unlock" element={<ChartUnlockPage />} />
+                <Route
+                    path="/incidents/:id/external-report"
+                    element={
+                        <ProtectedRoute allowedRoles={["DON", "Admin"]}>
+                            <ExternalReportPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/incidents/:id/unlock"
+                    element={
+                        <ProtectedRoute allowedRoles={["DON", "Admin"]}>
+                            <ChartUnlockPage />
+                        </ProtectedRoute>
+                    }
+                />
 
                 <Route path="/doctor-schedule" element={<DoctorsSchedulePage />} />
                 <Route path="/emar" element={<EmarPage />} />

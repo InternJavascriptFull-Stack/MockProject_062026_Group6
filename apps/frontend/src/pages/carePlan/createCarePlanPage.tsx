@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { APP_ROUTES } from "../../constants/appRoutes";
 import { AssignedTasksTable } from "./components/assignedTasksTable";
+import { useSearchParams } from "react-router-dom";
+import { AddCustomCareAreaModal } from "../../components/modals/AddCustomCareAreaModal";
+import { LOCGateView } from "../../components/care-plans/LOCGateView";
 import type { TaskItem } from "./components/assignedTasksTable";
 import { CareAreaCard } from "./components/careAreaCard";
 import { CostEstimateCard, PlanStatusCard } from "./components/carePlanSidePanels";
@@ -26,6 +29,8 @@ type CareArea = {
 
 export function CreateCarePlanPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const queryResidentId = searchParams.get("residentId");
   const isEditMode = !!id;
   const navigate = useNavigate();
 
@@ -35,20 +40,25 @@ export function CreateCarePlanPage() {
   const createMutation = useCreateCarePlan();
   const updateMutation = useUpdateCarePlan();
   const checkLocGateMutation = useCheckLocGate();
-  const isLocConfirmed = true;
 
-  const [residentId, setResidentId] = useState("");
+  const [residentId, setResidentId] = useState(queryResidentId || "");
   const [careAreas, setCareAreas] = useState<CareArea[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locWarning, setLocWarning] = useState<string | null>(null);
+  const [isCustomAreaModalOpen, setIsCustomAreaModalOpen] = useState(false);
+
+  const selectedResident = (residents as any[]).find((r) => r.id === residentId);
+  const isLocConfirmed = selectedResident ? selectedResident.status !== "PENDING" : true;
 
   // Set default resident when list loads (create mode)
   useEffect(() => {
-    if (!isEditMode && residents.length > 0 && !residentId) {
+    if (!isEditMode && queryResidentId) {
+      setResidentId(queryResidentId);
+    } else if (!isEditMode && residents.length > 0 && !residentId) {
       setResidentId(residents[0].id);
     }
-  }, [residents, isEditMode, residentId]);
+  }, [residents, isEditMode, residentId, queryResidentId]);
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -91,6 +101,21 @@ export function CreateCarePlanPage() {
         id: Date.now().toString(),
         title: "",
         badge: { text: "Manual", variant: "gray" as const },
+        goal: "",
+        measure: "",
+        target: "",
+        tasks: [],
+      },
+    ]);
+  };
+
+  const handleAddCustomAreaConfirm = (customArea: { name: string; category: string }) => {
+    setCareAreas([
+      ...careAreas,
+      {
+        id: Date.now().toString(),
+        title: customArea.name,
+        badge: { text: customArea.category, variant: "blue" as const },
         goal: "",
         measure: "",
         target: "",
@@ -222,39 +247,66 @@ export function CreateCarePlanPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
-            <div className="min-w-0">
-              <LocGateBanner tier={tier} />
+          {!isLocConfirmed ? (
+            <LOCGateView
+              residentName={selectedResident ? `${selectedResident.firstName} ${selectedResident.lastName}` : "Selected Resident"}
+              roomNumber={selectedResident?.roomNumber}
+              locStatus="Suggested (Unconfirmed)"
+              residentId={residentId}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+              <div className="min-w-0">
+                <LocGateBanner tier={tier} />
 
-              <div className="mb-4 text-sm font-bold text-slate-700">
-                Care Areas (Master Care Plan — §3.0)
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="text-sm font-bold text-slate-700">
+                    Care Areas (Master Care Plan — §3.0)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomAreaModalOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-md transition-colors"
+                  >
+                    + Add Custom Care Area (SC_045)
+                  </button>
+                </div>
+
+                {careAreas.map((area) => (
+                  <CareAreaCard
+                    key={area.id}
+                    {...area}
+                    onRemove={() => handleRemoveArea(area.id)}
+                    onChange={(field, val) => handleAreaChange(area.id, field, val)}
+                  />
+                ))}
+
+                <div className="mt-2 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAddArea}
+                    className="flex h-10 flex-1 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    + Add Standard Care Area
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomAreaModalOpen(true)}
+                    className="flex h-10 flex-1 items-center justify-center rounded-md border border-indigo-200 bg-indigo-50/50 px-4 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                  >
+                    + Add Custom Care Area (SC_045)
+                  </button>
+                </div>
+
+                <AssignedTasksTable tasks={tasks} onChange={setTasks} />
               </div>
 
-              {careAreas.map((area) => (
-                <CareAreaCard
-                  key={area.id}
-                  {...area}
-                  onRemove={() => handleRemoveArea(area.id)}
-                  onChange={(field, val) => handleAreaChange(area.id, field, val)}
-                />
-              ))}
-
-              <button
-                type="button"
-                onClick={handleAddArea}
-                className="mt-2 flex h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                + Add Care Area
-              </button>
-
-              <AssignedTasksTable tasks={tasks} onChange={setTasks} />
+              <div className="min-w-0 space-y-6">
+                <CostEstimateCard tier={tier} locRate={locRate} roomRate={roomRate} />
+                <PlanStatusCard />
+              </div>
             </div>
-
-            <div className="min-w-0 space-y-6">
-              <CostEstimateCard tier={tier} locRate={locRate} roomRate={roomRate} />
-              <PlanStatusCard />
-            </div>
-          </div>
+          )}
         </div>
       </main>
 
@@ -263,7 +315,7 @@ export function CreateCarePlanPage() {
           <button
             type="button"
             onClick={() => handleSubmit("Draft")}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isLocConfirmed}
             className="h-10 rounded-md border border-slate-200 bg-white px-6 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Save Draft
@@ -271,13 +323,20 @@ export function CreateCarePlanPage() {
           <button
             type="button"
             onClick={() => handleSubmit("Pending Review")}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isLocConfirmed}
             className="h-10 rounded-md bg-blue-600 px-6 text-sm font-bold !text-white hover:bg-blue-700 disabled:opacity-50"
+            title={!isLocConfirmed ? "Confirm LOC classification first." : undefined}
           >
             {isSubmitting ? "Submitting..." : "Submit for Review"}
           </button>
         </div>
       </footer>
+
+      <AddCustomCareAreaModal
+        isOpen={isCustomAreaModalOpen}
+        onClose={() => setIsCustomAreaModalOpen(false)}
+        onAdd={handleAddCustomAreaConfirm}
+      />
     </div>
   );
 }

@@ -117,13 +117,13 @@ async function main() {
     });
   }
 
-  // ── Users ──────────────────────────────────────────────────────────────────
+  // ── Users for all roles ───────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash("Password123!", BCRYPT_ROUNDS);
 
-  // Active admin
+  // 1. System Admin
   await prisma.user.upsert({
     where: { email: "admin@facility.org" },
-    update: {},
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
     create: {
       employeeCode: "EMP001",
       email: "admin@facility.org",
@@ -132,16 +132,16 @@ async function main() {
       lastName: "Admin",
       phoneNumber: "+15550001234",
       status: "ACTIVE",
-      mfaEnabled: true,
+      mfaEnabled: false,
       roleId: dbRoles["System Admin"].id,
     },
   });
 
-  // Wuan admin
+  // Wuan Admin
   const wuanHashedPassword = await bcrypt.hash("123123", BCRYPT_ROUNDS);
   await prisma.user.upsert({
     where: { email: "wuan1604@gmail.com" },
-    update: {},
+    update: { passwordHash: wuanHashedPassword, status: "ACTIVE" },
     create: {
       employeeCode: "EMP_WUAN",
       email: "wuan1604@gmail.com",
@@ -150,15 +150,32 @@ async function main() {
       lastName: "Admin",
       phoneNumber: "+15559998888",
       status: "ACTIVE",
-      mfaEnabled: true,
+      mfaEnabled: false,
       roleId: dbRoles["System Admin"].id,
     },
   });
 
-  // Active nurse
+  // 2. DON (Director of Nursing)
+  await prisma.user.upsert({
+    where: { email: "don@facility.org" },
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
+    create: {
+      employeeCode: "EMP_DON",
+      email: "don@facility.org",
+      passwordHash: hashedPassword,
+      firstName: "Sarah",
+      lastName: "Director",
+      phoneNumber: "+15550002222",
+      status: "ACTIVE",
+      mfaEnabled: false,
+      roleId: dbRoles["DON (Director of Nursing)"].id,
+    },
+  });
+
+  // 3. Nurse (RN/LPN)
   await prisma.user.upsert({
     where: { email: "j.rivera@facility.org" },
-    update: {},
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
     create: {
       employeeCode: "EMP002",
       email: "j.rivera@facility.org",
@@ -168,25 +185,92 @@ async function main() {
       lastName: "Rivera",
       phoneNumber: "+15550005678",
       status: "ACTIVE",
-      mfaEnabled: true,
+      mfaEnabled: false,
       roleId: dbRoles["Nurse (RN/LPN)"].id,
     },
   });
 
-  // Invited (pending activation) nurse
   await prisma.user.upsert({
-    where: { email: "new.nurse@facility.org" },
-    update: {},
+    where: { email: "nurse@facility.org" },
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
     create: {
-      employeeCode: "EMP003",
-      email: "new.nurse@facility.org",
-      passwordHash: "",
-      firstName: "New",
-      lastName: "Nurse",
-      status: "INACTIVE",
+      employeeCode: "EMP_NURSE",
+      email: "nurse@facility.org",
+      passwordHash: hashedPassword,
+      firstName: "Anna",
+      lastName: "Lee",
+      phoneNumber: "+15550003333",
+      status: "ACTIVE",
       mfaEnabled: false,
-      licenseNumber: "ACT123", // one-time activation code
       roleId: dbRoles["Nurse (RN/LPN)"].id,
+    },
+  });
+
+  // 4. CNA (Certified Nursing Assistant)
+  await prisma.user.upsert({
+    where: { email: "cna@facility.org" },
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
+    create: {
+      employeeCode: "EMP_CNA",
+      email: "cna@facility.org",
+      passwordHash: hashedPassword,
+      firstName: "Carlos",
+      lastName: "Assistant",
+      phoneNumber: "+15550004444",
+      status: "ACTIVE",
+      mfaEnabled: false,
+      roleId: dbRoles["CNA"].id,
+    },
+  });
+
+  // 5. Admission Staff
+  await prisma.user.upsert({
+    where: { email: "admission@facility.org" },
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
+    create: {
+      employeeCode: "EMP_ADM",
+      email: "admission@facility.org",
+      passwordHash: hashedPassword,
+      firstName: "Alice",
+      lastName: "Admission",
+      phoneNumber: "+15550005555",
+      status: "ACTIVE",
+      mfaEnabled: false,
+      roleId: dbRoles["Admission Staff"].id,
+    },
+  });
+
+  // 6. Physician
+  await prisma.user.upsert({
+    where: { email: "physician@facility.org" },
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
+    create: {
+      employeeCode: "EMP_DOC",
+      email: "physician@facility.org",
+      passwordHash: hashedPassword,
+      firstName: "Dr. Robert",
+      lastName: "Chen",
+      phoneNumber: "+15550006666",
+      status: "ACTIVE",
+      mfaEnabled: false,
+      roleId: dbRoles["Physician"].id,
+    },
+  });
+
+  // 7. Dietary
+  await prisma.user.upsert({
+    where: { email: "dietary@facility.org" },
+    update: { passwordHash: hashedPassword, status: "ACTIVE" },
+    create: {
+      employeeCode: "EMP_DIET",
+      email: "dietary@facility.org",
+      passwordHash: hashedPassword,
+      firstName: "David",
+      lastName: "Dietary",
+      phoneNumber: "+15550007777",
+      status: "ACTIVE",
+      mfaEnabled: false,
+      roleId: dbRoles["Dietary"].id,
     },
   });
 
@@ -373,6 +457,78 @@ async function main() {
         shift_breakdown_json: shiftBreakdownJson,
       },
     });
+  }
+
+  // ── Holidays Seeding ────────────────────────────────────────────────────────
+  const federalHolidaysSeed = [
+    { name: "New Year's Day", dateType: "FIXED", month: 1, day: 1, floatingRule: null },
+    { name: "Martin Luther King Jr. Day", dateType: "FLOATING", month: 1, day: null, floatingRule: "3rd Monday in January" },
+    { name: "Washington's Birthday", dateType: "FLOATING", month: 2, day: null, floatingRule: "3rd Monday in February" },
+    { name: "Memorial Day", dateType: "FLOATING", month: 5, day: null, floatingRule: "Last Monday in May" },
+    { name: "Juneteenth National Independence Day", dateType: "FIXED", month: 6, day: 19, floatingRule: null },
+    { name: "Independence Day", dateType: "FIXED", month: 7, day: 4, floatingRule: null },
+    { name: "Labor Day", dateType: "FLOATING", month: 9, day: null, floatingRule: "1st Monday in September" },
+    { name: "Columbus Day", dateType: "FLOATING", month: 10, day: null, floatingRule: "2nd Monday in October" },
+    { name: "Veterans Day", dateType: "FIXED", month: 11, day: 11, floatingRule: null },
+    { name: "Thanksgiving Day", dateType: "FLOATING", month: 11, day: null, floatingRule: "4th Thursday in November" },
+    { name: "Christmas Day", dateType: "FIXED", month: 12, day: 25, floatingRule: null },
+  ];
+
+  for (const h of federalHolidaysSeed) {
+    const existing = await prisma.holidays.findFirst({
+      where: { name: h.name, is_federal_read_only: true },
+    });
+    if (!existing) {
+      await prisma.holidays.create({
+        data: {
+          name: h.name,
+          date_type: h.dateType,
+          month: h.month,
+          day: h.day,
+          floating_rule: h.floatingRule,
+          repeats_annually: true,
+          is_active: true,
+          is_federal_read_only: true,
+        },
+      });
+    }
+  }
+
+  const caStateHolidaysSeed = [
+    { name: "New Year's Day (CA)", dateType: "FIXED", month: 1, day: 1, floatingRule: null },
+    { name: "Martin Luther King Jr. Day (CA)", dateType: "FLOATING", month: 1, day: null, floatingRule: "3rd Monday in January" },
+    { name: "Lincoln's Birthday", dateType: "FIXED", month: 2, day: 12, floatingRule: null },
+    { name: "César Chávez Day", dateType: "FIXED", month: 3, day: 31, floatingRule: null },
+    { name: "Memorial Day (CA)", dateType: "FLOATING", month: 5, day: null, floatingRule: "Last Monday in May" },
+    { name: "Juneteenth (CA)", dateType: "FIXED", month: 6, day: 19, floatingRule: null },
+    { name: "Independence Day (CA)", dateType: "FIXED", month: 7, day: 4, floatingRule: null },
+    { name: "Labor Day (CA)", dateType: "FLOATING", month: 9, day: null, floatingRule: "1st Monday in September" },
+    { name: "Native American Day", dateType: "FLOATING", month: 9, day: null, floatingRule: "4th Friday in September" },
+    { name: "Veterans Day (CA)", dateType: "FIXED", month: 11, day: 11, floatingRule: null },
+    { name: "Thanksgiving Day (CA)", dateType: "FLOATING", month: 11, day: null, floatingRule: "4th Thursday in November" },
+    { name: "Day After Thanksgiving", dateType: "FLOATING", month: 11, day: null, floatingRule: "4th Friday in November" },
+    { name: "Christmas Day (CA)", dateType: "FIXED", month: 12, day: 25, floatingRule: null },
+  ];
+
+  for (const h of caStateHolidaysSeed) {
+    const existing = await prisma.holidays.findFirst({
+      where: { facility_id: facility.id, name: h.name },
+    });
+    if (!existing) {
+      await prisma.holidays.create({
+        data: {
+          facility_id: facility.id,
+          name: h.name,
+          date_type: h.dateType,
+          month: h.month,
+          day: h.day,
+          floating_rule: h.floatingRule,
+          repeats_annually: true,
+          is_active: true,
+          is_federal_read_only: false,
+        },
+      });
+    }
   }
 
   console.log("[Seed] Done.");

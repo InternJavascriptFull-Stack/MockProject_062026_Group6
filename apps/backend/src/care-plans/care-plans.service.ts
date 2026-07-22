@@ -173,6 +173,16 @@ export class CarePlansService {
                 }
             });
 
+            // Transition prior active/signed plans for this resident to SUPERSEDED
+            await tx.care_plans.updateMany({
+                where: {
+                    resident_id: plan.resident_id,
+                    status: { in: ['ACTIVE', 'SIGNED'] },
+                    NOT: { id }
+                },
+                data: { status: 'SUPERSEDED' }
+            });
+
             await tx.care_plans.update({
                 where: { id },
                 data: { status: CarePlanStatus.SIGNED }
@@ -180,6 +190,27 @@ export class CarePlansService {
 
             return sig;
         });
+    }
+
+    async checkActiveCarePlan(residentId: string) {
+        const existingPlan = await this.prisma.care_plans.findFirst({
+            where: {
+                resident_id: residentId,
+                status: { in: ['DRAFT', 'PENDING_REVIEW', 'APPROVED', 'SIGNED', 'ACTIVE'] },
+                is_deleted: false
+            },
+            orderBy: { updated_at: 'desc' }
+        });
+
+        return {
+            hasActiveOrDraft: !!existingPlan,
+            existingPlan: existingPlan ? {
+                id: existingPlan.id,
+                status: existingPlan.status,
+                createdAt: existingPlan.created_at,
+                updatedAt: existingPlan.updated_at
+            } : null
+        };
     }
 
     async idtAck(id: string, data: IdtAckDto, userId: string) {

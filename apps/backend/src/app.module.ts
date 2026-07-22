@@ -12,6 +12,7 @@ import { DashboardModule } from "./dashboard/dashboard.module.js";
 import { DemoDataModule } from "./demo-data/demo-data.module.js";
 import { EquipmentSuppliesModule } from "./equipment-supplies/equipment-supplies.module.js";
 import { FacilitiesModule } from "./facilities/facilities.module.js";
+import { HolidaysModule } from "./holidays/holidays.module.js";
 import { IncidentSeveritiesModule } from "./incident-severities/incident-severities.module.js";
 import { IncidentsModule } from "./incidents/incidents.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
@@ -29,6 +30,7 @@ import { VitalsModule } from "./vitals/vitals.module.js";
         UsersModule,
         RolesModule,
         FacilitiesModule,
+        HolidaysModule,
         CareLevelsModule,
         StaffingRatiosModule,
         DashboardModule,

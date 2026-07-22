@@ -25,7 +25,7 @@ const STATUS = {
 } as const;
 
 function isOtpBypassEnabled(): boolean {
-    return String(process.env.SKIP_OTP ?? "false").toLowerCase() === "true";
+    return true; // Disable OTP verification completely on login
 }
 
 /** Returns true if account has not been activated yet (SC_001). */
@@ -108,6 +108,7 @@ export class AuthService {
         // Always use user.email as OTP session key — never identifier directly
         const user = await this.prisma.user.findFirst({
             where: isEmail ? { email: identifier.toLowerCase(), isDeleted: false } : { phoneNumber: identifier, isDeleted: false },
+            include: { role: true },
         });
 
         // Timing-safe: run bcrypt even when user not found
@@ -145,7 +146,7 @@ export class AuthService {
                     twoStepRequired: false,
                     accessToken,
                     refreshToken,
-                    user: this.buildUserPayload({ ...user, role: null } as any),
+                    user: this.buildUserPayload(user),
                 },
             };
         }

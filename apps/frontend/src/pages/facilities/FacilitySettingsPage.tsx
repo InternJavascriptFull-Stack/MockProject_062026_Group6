@@ -80,7 +80,11 @@ function getStatusSelectClass(status: FacilityBedStatus) {
     return `${baseClass} border-emerald-300 bg-emerald-100 text-emerald-600`;
 }
 
-type FacilityTab = "general" | "rooms" | "rates" | "capabilities";
+import { holidaysService } from "@/services/holidays";
+import type { StateHoliday, CreateHolidayPayload } from "@/services/holidays";
+import { AddEditStateHolidayModal } from "@/components/modals/AddEditStateHolidayModal";
+
+type FacilityTab = "general" | "rooms" | "rates" | "capabilities" | "holidays";
 type FacilityRoomDraft = FacilityRoomForm & { clientId: string };
 
 function createClientId() {
@@ -212,11 +216,12 @@ export default function FacilitySettingsPage() {
                     { id: "rooms", label: "Rooms & Wings" },
                     { id: "rates", label: "Room Rate" },
                     { id: "capabilities", label: "Clinical Capability" },
+                    { id: "holidays", label: "Holidays" },
                 ].map((tab) => (
                     <button
                         key={tab.id}
                         type="button"
-                        className={`px-4 py-2 ${activeTab === tab.id ? "border-b-2 border-blue-600 text-blue-600" : ""}`}
+                        className={`px-4 py-2 ${activeTab === tab.id ? "border-b-2 border-blue-600 text-blue-600 font-semibold" : ""}`}
                         onClick={() => setActiveTab(tab.id as FacilityTab)}
                     >
                         {tab.label}
@@ -365,6 +370,10 @@ export default function FacilitySettingsPage() {
                         </p>
                     )}
                 </section>
+            )}
+
+            {activeTab === "holidays" && (
+                <HolidaysTabContent facilityCode={data.facilityCode} targetState={formData.targetState || "CA"} />
             )}
 
             {isAddRoomOpen && (
@@ -597,3 +606,197 @@ function SelectField({
         </label>
     );
 }
+
+function HolidaysTabContent({ facilityCode, targetState }: { facilityCode: string; targetState: string }) {
+    const queryClient = useQueryClient();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [holidayToEdit, setHolidayToEdit] = useState<StateHoliday | null>(null);
+
+    const { data: holidaysData, isLoading, isError } = useQuery({
+        queryKey: ["holidaysData", facilityCode],
+        queryFn: () => holidaysService.getHolidays(facilityCode),
+    });
+
+    const toggleMutation = useMutation({
+        mutationFn: (id: string) => holidaysService.toggleHolidayStatus(facilityCode, id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["holidaysData", facilityCode] });
+        },
+    });
+
+    const saveMutation = useMutation({
+        mutationFn: async (payload: CreateHolidayPayload) => {
+            if (holidayToEdit) {
+                return holidaysService.updateStateHoliday(facilityCode, holidayToEdit.id, payload);
+            }
+            return holidaysService.createStateHoliday(facilityCode, payload);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["holidaysData", facilityCode] });
+            setIsAddModalOpen(false);
+            setHolidayToEdit(null);
+        },
+    });
+
+    const handleEdit = (holiday: StateHoliday) => {
+        setHolidayToEdit(holiday);
+        setIsAddModalOpen(true);
+    };
+
+    const handleOpenAdd = () => {
+        setHolidayToEdit(null);
+        setIsAddModalOpen(true);
+    };
+
+    if (isLoading) return <div className="p-8 text-center text-slate-500">Loading holidays...</div>;
+    if (isError || !holidaysData) return <div className="p-8 text-center text-red-500">Failed to load holidays.</div>;
+
+    const { stateHolidays, federalHolidays } = holidaysData;
+
+    return (
+        <div className="space-y-6">
+            {/* State Holidays Section */}
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-2xs">
+                <div className="mb-4 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">
+                            State Holidays Configuration
+                        </h2>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                            Active State: <span className="font-semibold text-slate-700">{targetState}</span> — Toggle holiday active/inactive status or configure custom state holidays (HOL-BR-03: hard delete disabled if referenced).
+                        </p>
+                    </div>
+                    <Button onClick={handleOpenAdd} className="h-9 gap-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">
+                        <Plus className="h-4 w-4" />
+                        Add State Holiday
+                    </Button>
+                </div>
+
+                <div className="overflow-hidden rounded-md border border-slate-200">
+                    <table className="w-full text-left text-sm">
+                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                            <tr>
+                                <th className="px-4 py-3">Holiday Name</th>
+                                <th className="px-4 py-3">Date / Floating Rule</th>
+                                <th className="px-4 py-3">Repeat Annually</th>
+                                <th className="px-4 py-3">Status Toggle</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {stateHolidays.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                                        No State Holidays configured.
+                                    </td>
+                                </tr>
+                            ) : (
+                                stateHolidays.map((holiday) => (
+                                    <tr key={holiday.id} className="text-slate-700 hover:bg-slate-50/50">
+                                        <td className="px-4 py-3 font-semibold text-slate-900">{holiday.name}</td>
+                                        <td className="px-4 py-3 text-slate-600">
+                                            {holiday.dateType === "FIXED"
+                                                ? `${holiday.month}/${holiday.day}`
+                                                : holiday.floatingRule || "Floating"}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge variant={holiday.repeatsAnnually ? "default" : "muted"}>
+                                                {holiday.repeatsAnnually ? "Yes" : "No"}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleMutation.mutate(holiday.id)}
+                                                disabled={toggleMutation.isPending}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                                    holiday.isActive ? "bg-emerald-500" : "bg-slate-300"
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                                                        holiday.isActive ? "translate-x-5" : "translate-x-0"
+                                                    }`}
+                                                />
+                                            </button>
+                                            <span className="ml-2 text-xs font-medium text-slate-500">
+                                                {holiday.isActive ? "Active" : "Inactive"}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEdit(holiday)}
+                                                className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                                            >
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            {/* Federal Holidays (Read-only) Section */}
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-2xs">
+                <div className="mb-4">
+                    <h2 className="text-lg font-bold text-slate-900">
+                        Federal Holidays (System-Defined, read-only)
+                    </h2>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                        System-defined standard 11 US Federal Holidays (HOL-BR-01). Read-only for reference across all facilities.
+                    </p>
+                </div>
+
+                <div className="overflow-hidden rounded-md border border-slate-200">
+                    <table className="w-full text-left text-sm">
+                        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                            <tr>
+                                <th className="px-4 py-3">Holiday Name</th>
+                                <th className="px-4 py-3">Date / Floating Rule</th>
+                                <th className="px-4 py-3">Repeat Annually</th>
+                                <th className="px-4 py-3">Type</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {federalHolidays.map((holiday) => (
+                                <tr key={holiday.id} className="bg-slate-50/30 text-slate-700">
+                                    <td className="px-4 py-3 font-semibold text-slate-800">{holiday.name}</td>
+                                    <td className="px-4 py-3 text-slate-600">
+                                        {holiday.dateType === "FIXED"
+                                            ? `${holiday.month}/${holiday.day}`
+                                            : holiday.floatingRule || "Floating"}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <Badge variant="default">Yes</Badge>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                            Federal Read-Only
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <AddEditStateHolidayModal
+                isOpen={isAddModalOpen}
+                onClose={() => {
+                    setIsAddModalOpen(false);
+                    setHolidayToEdit(null);
+                }}
+                onSave={async (payload) => {
+                    await saveMutation.mutateAsync(payload);
+                }}
+                holidayToEdit={holidayToEdit}
+            />
+        </div>
+    );
+}
+

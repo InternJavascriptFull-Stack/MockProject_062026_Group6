@@ -24,6 +24,8 @@ export interface LoginResponse {
     twoStepRequired: boolean;
     /** Hint for the last 2 digits of the registered phone, e.g. "••34" */
     phoneHint?: string | null;
+    /** Optional tempCode used for OTP verification flow */
+    tempCode?: string | null;
     /** OTP bypass — only populated when SKIP_OTP=true on backend (dev only) */
     accessToken?: string;
     refreshToken?: string;
@@ -39,5 +41,5 @@ export interface VerifyOtpResponse {
 
 /** Returned by POST /api/auth/resend-otp */
 export interface ResendOtpResponse {
-    // empty — resend only confirms delivery, no token data exposed
+    tempCode?: string | null;
 }

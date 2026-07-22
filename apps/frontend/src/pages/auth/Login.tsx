@@ -14,13 +14,14 @@ export function Login() {
 
     const validate = () => {
         const newErrors: { email?: string; password?: string } = {};
+        const cleanEmail = emailOrPhone.trim();
 
-        if (!emailOrPhone.trim()) {
+        if (!cleanEmail) {
             newErrors.email = "Email or Phone number is required";
-        } else if (emailOrPhone.includes("@")) {
+        } else if (cleanEmail.includes("@")) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(emailOrPhone)) {
-                newErrors.email = "Email format must be valid";
+            if (!emailRegex.test(cleanEmail)) {
+                newErrors.email = "Email format must be valid (e.g. admin@facility.org)";
             }
         }
 
@@ -42,14 +43,15 @@ export function Login() {
         setErrors({});
 
         try {
-            const response = await authService.login(emailOrPhone, password);
+            const cleanEmail = emailOrPhone.trim();
+            const response = await authService.login(cleanEmail, password);
 
             if (response.success && response.data) {
                 if (response.data.accessToken && response.data.refreshToken && response.data.user) {
                     session.save(response.data.accessToken, response.data.refreshToken, response.data.user);
 
                     const roleName = response.data.user.roleName?.toLowerCase() ?? "";
-                    navigate(roleName.includes("admin") ? "/dashboard/admin" : "/dashboard", {
+                    navigate(roleName.includes("admin") ? "/admin/users" : "/dashboard", {
                         replace: true,
                     });
                     return;

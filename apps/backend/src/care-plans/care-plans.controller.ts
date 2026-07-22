@@ -33,6 +33,13 @@ export class CarePlansController {
         return { success: true, data };
     }
 
+    @Get('check-active/:residentId')
+    @ApiOperation({ summary: 'Check if resident has active or draft Care Plan' })
+    async checkActiveCarePlan(@Param('residentId') residentId: string) {
+        const data = await this.carePlansService.checkActiveCarePlan(residentId);
+        return { success: true, data };
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'View Care Plan details by ID' })
     async findOne(@Param('id') id: string) {

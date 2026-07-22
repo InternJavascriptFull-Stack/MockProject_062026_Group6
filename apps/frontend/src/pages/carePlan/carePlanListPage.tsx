@@ -5,6 +5,7 @@ import { CarePlanFilters } from "./components/carePlanFilters";
 import { CarePlanSummaryCards } from "./components/carePlanSummaryCards";
 import { CarePlanTable } from "./components/carePlanTable";
 import { useCarePlans, useCarePlanSummary } from "./services/apiHooks";
+import { SelectResidentModal } from "../../components/modals/SelectResidentModal";
 import type { CarePlanStatus } from "./types";
 
 export function CarePlanListPage() {
@@ -28,18 +29,29 @@ export function CarePlanListPage() {
     reviewDueCount: 0,
   };
 
+  const [isSelectResidentOpen, setIsSelectResidentOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-white p-6 md:p-8">
-      <div className="mb-6">
-        <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
-          <span>Care Planning</span>
-          <span>&gt;</span>
-          <span>List</span>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
+            <span>Care Planning</span>
+            <span>&gt;</span>
+            <span>List</span>
+          </div>
+          <h1 className="text-3xl font-bold text-slate-900">Care Plans</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {total} plans across your assigned residents
+          </p>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900">Care Plans</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {total} plans across your assigned residents
-        </p>
+        <button
+          type="button"
+          onClick={() => setIsSelectResidentOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium text-sm rounded-lg shadow-xs transition-colors"
+        >
+          + New Care Plan
+        </button>
       </div>
 
       <CarePlanFilters
@@ -66,6 +78,19 @@ export function CarePlanListPage() {
         page={page}
         total={total}
         onPageChange={setPage}
+      />
+
+      <SelectResidentModal
+        isOpen={isSelectResidentOpen}
+        onClose={() => setIsSelectResidentOpen(false)}
+        residents={carePlans.map((p) => ({
+          id: p.id,
+          firstName: p.residentName ? p.residentName.split(' ')[0] : 'Resident',
+          lastName: p.residentName ? p.residentName.split(' ').slice(1).join(' ') : 'Name',
+          roomNumber: p.room,
+          careLevelName: p.locTier,
+          carePlanStatus: p.status,
+        }))}
       />
     </div>
   );

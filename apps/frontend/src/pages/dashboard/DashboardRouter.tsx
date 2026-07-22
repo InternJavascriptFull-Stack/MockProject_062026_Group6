@@ -13,16 +13,18 @@ export default function DashboardRouter() {
 
     const roleName = user.roleName?.toUpperCase() || "";
 
-    if (roleName.includes("NURSE")) {
-        return <NurseDashboard />;
+    if (roleName.includes("SYSTEM ADMIN") || roleName.includes("ADMINISTRATOR")) {
+        return <Navigate to="/admin/users" replace />;
     }
-    
-    // We assume any CNA-related role string is caught by the constant, 
-    // or if the DB strictly uses "CNA"
+
+    if (roleName.includes("DON") || roleName.includes("DIRECTOR")) {
+        return <DonDashboard />;
+    }
+
     if (roleName.includes("CNA")) {
         return <CnaDashboard />;
     }
-    
-    // Default to DON / Admin
-    return <DonDashboard />;
+
+    // Default for Nurses, Admission Staff, Physicians, etc.
+    return <NurseDashboard />;
 }

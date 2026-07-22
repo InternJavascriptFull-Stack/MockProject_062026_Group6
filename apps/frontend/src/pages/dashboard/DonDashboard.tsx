@@ -20,11 +20,11 @@ export function DonDashboard() {
     const { data: dashboard } = data;
 
     return (
-        <div className="flex h-full flex-col bg-slate-50">
-            <div className="mb-6">
-                <h2 className="text-sm font-medium text-slate-500">Dashboard</h2>
-                <h1 className="mt-1 text-3xl font-bold text-slate-900">Good morning, {user?.firstName}</h1>
-                <p className="mt-2 text-sm text-slate-500">Facility overview</p>
+        <div className="p-6 md:p-8 space-y-6 bg-slate-50 min-h-full">
+            <div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Dashboard</div>
+                <h1 className="text-3xl font-extrabold text-slate-900">Good morning, {user?.firstName || "Director"}</h1>
+                <p className="mt-1 text-sm text-slate-500">Director of Nursing — Facility Overview</p>
             </div>
 
             <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

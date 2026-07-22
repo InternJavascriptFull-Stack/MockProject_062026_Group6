@@ -16,8 +16,15 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   const user = session.getUser();
-  if (allowedRoles?.length && !allowedRoles.includes(user?.roleName ?? "")) {
-    return <Navigate to="/dashboard/admin" replace />;
+  const userRole = (user?.roleName || "").toLowerCase();
+
+  if (allowedRoles?.length) {
+    const isAllowed = allowedRoles.some((allowed) =>
+      userRole.includes(allowed.toLowerCase())
+    );
+    if (!isAllowed) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;
