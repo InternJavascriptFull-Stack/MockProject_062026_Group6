@@ -19,9 +19,11 @@ export class MailService {
      *   MAIL_FROM     — Display name + address, e.g. "NHMS <noreply@nhms.org>"
      */
     async sendOtp(toEmail: string, otp: string): Promise<void> {
-        const host = process.env.MAIL_HOST;
-        const user = process.env.MAIL_USER;
-        const password = process.env.MAIL_PASSWORD;
+        const host = process.env.MAIL_HOST || process.env.SMTP_HOST;
+        const user = process.env.MAIL_USER || process.env.EMAIL_USER;
+        const password = process.env.MAIL_PASSWORD || process.env.EMAIL_PASSWORD;
+        const port = Number(process.env.MAIL_PORT || process.env.SMTP_PORT || 587);
+        const secure = process.env.MAIL_SECURE === "true" || process.env.SMTP_SECURE === "true";
 
         // Development fallback — log to console when SMTP is not configured
         if (!host || !user || !password) {
@@ -31,12 +33,12 @@ export class MailService {
 
         const transporter = nodemailer.createTransport({
             host,
-            port: Number(process.env.MAIL_PORT ?? 587),
-            secure: process.env.MAIL_SECURE === "true",
+            port,
+            secure,
             auth: { user, pass: password },
         });
 
-        const from = process.env.MAIL_FROM ?? user;
+        const from = process.env.MAIL_FROM || process.env.EMAIL_FROM || user;
 
         const mailOptions: nodemailer.SendMailOptions = {
             from,
@@ -75,6 +77,79 @@ export class MailService {
             this.logger.error(`[Mail] Failed to send OTP to ${toEmail}: ${error.message}`);
             // Requirement 6: if email fails, do NOT create session — throw so caller aborts
             throw new InternalServerErrorException("Unable to send OTP email.");
+        }
+    }
+
+    async sendInvitation(toEmail: string, fullName: string, token: string): Promise<void> {
+        const host = process.env.MAIL_HOST || process.env.SMTP_HOST;
+        const user = process.env.MAIL_USER || process.env.EMAIL_USER;
+        const password = process.env.MAIL_PASSWORD || process.env.EMAIL_PASSWORD;
+        const port = Number(process.env.MAIL_PORT || process.env.SMTP_PORT || 587);
+        const secure = process.env.MAIL_SECURE === "true" || process.env.SMTP_SECURE === "true";
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
+
+        // Development fallback — log to console when SMTP is not configured
+        if (!host || !user || !password) {
+            this.logger.log(`[Invitation DEV] Activation link for ${toEmail}: ${frontendUrl}/activate?token=${token}`);
+            return;
+        }
+
+        const transporter = nodemailer.createTransport({
+            host,
+            port,
+            secure,
+            auth: { user, pass: password },
+        });
+
+        const from = process.env.MAIL_FROM || process.env.EMAIL_FROM || user;
+
+        const mailOptions: nodemailer.SendMailOptions = {
+            from,
+            to: toEmail,
+            subject: "You're invited to activate your account",
+            text: [
+                `Hello ${fullName},`,
+                "",
+                "An administrator has created an account for you.",
+                "",
+                "Please click the link below to activate your account:",
+                `${frontendUrl}/activate?token=${token}`,
+                "",
+                "The link expires in 24 hours.",
+                "",
+                "If you did not expect this invitation, please ignore this email.",
+            ].join("\n"),
+            html: `
+                <div style="font-family:sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#1e3a5f">Activate Your Account</h2>
+                  <p>Hello ${fullName},</p>
+                  <p>An administrator has created an account for you.</p>
+                  <p>Please click the button below to activate your account.</p>
+                  <p style="margin:24px 0">
+                    <a href="${frontendUrl}/activate?token=${token}"
+                       style="background-color:#2563eb;color:#ffffff;padding:12px 24px;
+                              text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">
+                      Activate Account
+                    </a>
+                  </p>
+                  <p style="color:#555">Alternatively, copy and paste this link in your browser:</p>
+                  <p style="word-break:break-all;color:#2563eb">${frontendUrl}/activate?token=${token}</p>
+                  <p style="color:#555">The link expires in <strong>24 hours</strong>.</p>
+                  <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
+                  <p style="font-size:12px;color:#999">
+                    If you did not expect this invitation, please ignore this email.
+                  </p>
+                </div>
+            `,
+        };
+
+        try {
+            await transporter.sendMail(mailOptions);
+            this.logger.log(`[Mail] Invitation sent to ${toEmail}`);
+        } catch (error: any) {
+            this.logger.error(`[Mail] Failed to send invitation to ${toEmail}: ${error.message}`);
+            // Log fallback activation link to terminal in case SMTP is blocked/fails
+            console.log(`[Invitation FALLBACK] Failed to send email. Activation link for ${toEmail}: ${frontendUrl}/activate?token=${token}`);
         }
     }
 }

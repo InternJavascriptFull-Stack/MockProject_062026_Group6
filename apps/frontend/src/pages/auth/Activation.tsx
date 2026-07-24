@@ -7,9 +7,9 @@ export function Activation() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const email = searchParams.get("email")?.trim() ?? "";
-  const activationCode = searchParams.get("code")?.trim() ?? "";
-  const hasValidInvite = Boolean(email && activationCode);
+  const [email, setEmail] = useState("");
+  const [activationCode, setActivationCode] = useState("");
+  const [hasValidInvite, setHasValidInvite] = useState(false);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,8 +21,46 @@ export function Activation() {
     phoneNumber?: string;
     api?: string;
   }>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    const queryEmail = searchParams.get("email")?.trim() ?? "";
+    const queryCode = searchParams.get("code")?.trim() ?? "";
+    const queryToken = searchParams.get("token")?.trim() ?? "";
+
+    if (queryEmail && queryCode) {
+      setEmail(queryEmail);
+      setActivationCode(queryCode);
+      setHasValidInvite(true);
+      setIsLoading(false);
+    } else if (queryToken) {
+      setIsLoading(true);
+      setErrors({});
+      authService.getActivateContext(queryToken)
+        .then((res) => {
+          if (res.success && res.data) {
+            setEmail(res.data.email);
+            setActivationCode(queryToken);
+            setHasValidInvite(true);
+            if (res.data.phoneNumber) {
+              setPhoneNumber(res.data.phoneNumber);
+            }
+          } else {
+            setErrors({ api: res.message || "This invitation link is invalid or incomplete. Please request a new invitation from your administrator." });
+          }
+        })
+        .catch((err: any) => {
+          setErrors({ api: err.message || "Failed to validate activation token." });
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      setHasValidInvite(false);
+      setIsLoading(false);
+    }
+  }, [searchParams]);
 
   // Password rules validation
   const rules = {
@@ -79,8 +117,13 @@ export function Activation() {
     setIsLoading(true);
     setErrors({});
 
+    let normalizedPhone = phoneNumber.trim().replace(/\s+/g, "");
+    if (!normalizedPhone.startsWith("+")) {
+      normalizedPhone = "+" + normalizedPhone;
+    }
+
     try {
-      const response = await authService.activate(email, activationCode, password, phoneNumber);
+      const response = await authService.activate(email, activationCode, password, normalizedPhone);
 
       if (response.success) {
         setIsSuccess(true);
@@ -160,7 +203,7 @@ export function Activation() {
           </div>
 
           {/* Invitation validation check */}
-          {!hasValidInvite && (
+          {!hasValidInvite && !isLoading && (
             <div className="mb-6 flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-700">
               <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-rose-500" />
               <div>
