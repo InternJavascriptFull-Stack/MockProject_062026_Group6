@@ -13,7 +13,7 @@ export function WorkflowPage({
     actions,
     children,
 }: {
-    title: string;
+    title: ReactNode;
     description?: string;
     breadcrumb?: string;
     actions?: ReactNode;

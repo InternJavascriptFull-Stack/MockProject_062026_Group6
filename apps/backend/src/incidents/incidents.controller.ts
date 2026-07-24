@@ -69,17 +69,21 @@ export class IncidentsController {
     }
 
     @Post(":id/lock-chart")
+    @Post(":incidentId/lock-chart")
     @ApiOperation({ summary: "Lock a resident chart for an incident investigation" })
-    lockChart(@Param("id") id: string, @Body() dto: ChartLockDto, @Req() request: any) {
+    lockChart(@Param("id") id: string | undefined, @Param("incidentId") incidentId: string | undefined, @Body() dto: ChartLockDto, @Req() request: any) {
+        const targetId = id || incidentId || "";
         this.checkPermission(request, ["System Admin", "DON (Director of Nursing)", "Nurse (RN/LPN)"]);
-        return this.incidentsService.lockChart(id, dto.reason?.trim() || "Incident under investigation", request.user.sub);
+        return this.incidentsService.lockChart(targetId, dto.reason?.trim() || "Incident under investigation", request.user.sub);
     }
 
     @Post(":id/unlock-chart")
+    @Post(":incidentId/unlock-chart")
     @ApiOperation({ summary: "Unlock a resident chart after DON review" })
-    unlockChart(@Param("id") id: string, @Body() dto: ChartUnlockDto, @Req() request: any) {
+    unlockChart(@Param("id") id: string | undefined, @Param("incidentId") incidentId: string | undefined, @Body() dto: ChartUnlockDto, @Req() request: any) {
+        const targetId = id || incidentId || "";
         this.checkPermission(request, DON_ROLES);
-        return this.incidentsService.unlockChart(id, dto.reason, dto.passwordConfirm, request.user.sub);
+        return this.incidentsService.unlockChart(targetId, dto.reason, dto.passwordConfirm, request.user.sub);
     }
 
     private checkPermission(request: any, allowedRoles: string[]): void {

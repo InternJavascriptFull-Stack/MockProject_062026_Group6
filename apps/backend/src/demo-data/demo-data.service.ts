@@ -7,11 +7,6 @@ export class DemoDataService {
 
     constructor(private readonly prisma: PrismaService) {}
 
-    /**
-     * Helper to identify if a record is sample/demo data.
-     * All sample records will have "sample" or similar pattern.
-     * For Residents, we will use a specific flag or pattern.
-     */
     private readonly SAMPLE_PREFIX = "Sample ";
 
     async getStatus() {
@@ -31,10 +26,8 @@ export class DemoDataService {
             where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
         });
 
-        // Check if any sample data exists
         const hasData = residentCount > 0 || carePlanCount > 0 || incidentCount > 0 || medicationCount > 0;
 
-        // Get last seeded timestamp (using last created resident as proxy)
         const lastResident = await this.prisma.residents.findFirst({
             where: { first_name: { startsWith: this.SAMPLE_PREFIX } },
             orderBy: { created_at: "desc" },
@@ -55,27 +48,29 @@ export class DemoDataService {
     }
 
     async seedAll(userId: string) {
-        const status = await this.getStatus();
-        if (status.seeded) {
-            return { success: false, message: "Demo data already exists" };
+        try {
+            await this.clearAll();
+        } catch (err: any) {
+            this.logger.warn("Clear before seed warning: " + err.message);
         }
 
         try {
-            await this.prisma.$transaction(async (tx) => {
-                // 1. Ensure a default Facility exists
+            await this.prisma.$transaction(
+                async (tx) => {
+                // 1. Ensure Facility
                 let facility = await tx.facility.findFirst();
                 if (!facility) {
                     facility = await tx.facility.create({
                         data: {
-                            facilityCode: "FAC001",
-                            name: "Default Care Facility",
-                            licenseNumber: "LIC123456",
-                            targetState: "TX",
+                            facilityCode: "FAC-0042",
+                            name: "NHMS Skilled Nursing & Assisted Living",
+                            licenseNumber: "LIC-CA-998822",
+                            targetState: "CA",
                         },
                     });
                 }
 
-                // Link current user to facility if not done
+                // Ensure UserFacility link
                 const userFacility = await tx.userFacility.findFirst({
                     where: { userId, facilityId: facility.id },
                 });
@@ -89,221 +84,372 @@ export class DemoDataService {
                     });
                 }
 
-                // 2. Ensure rooms and beds exist
+                // 2. Create Rooms (25 rooms x 2 beds = 50 beds)
                 let beds = await tx.beds.findMany({
                     where: { rooms: { facility_id: facility.id } },
                 });
 
-                if (beds.length < 20) {
-                    // Create 10 rooms, 2 beds each
-                    for (let r = 1; r <= 10; r++) {
-                        const roomNumber = `R-${100 + r}`;
+                if (beds.length < 50) {
+                    for (let r = 1; r <= 25; r++) {
+                        const roomNum = (100 + r).toString();
                         let room = await tx.rooms.findFirst({
-                            where: { facility_id: facility.id, room_number: roomNumber },
+                            where: { facility_id: facility.id, room_number: roomNum },
                         });
                         if (!room) {
                             room = await tx.rooms.create({
                                 data: {
                                     facility_id: facility.id,
-                                    room_number: roomNumber,
-                                    room_type: "Semi-Private",
+                                    room_number: roomNum,
+                                    room_type: r % 4 === 0 ? "Private" : "Semi-Private",
                                 },
                             });
                         }
 
-                        for (const bedNumber of ["A", "B"]) {
+                        for (const bedLetter of ["A", "B"]) {
                             const existingBed = await tx.beds.findFirst({
-                                where: { room_id: room.id, bed_number: bedNumber },
+                                where: { room_id: room.id, bed_number: bedLetter },
                             });
                             if (!existingBed) {
                                 await tx.beds.create({
                                     data: {
                                         room_id: room.id,
-                                        bed_number: bedNumber,
+                                        bed_number: bedLetter,
                                         status: "AVAILABLE",
                                     },
                                 });
                             }
                         }
                     }
-                    // Fetch created beds
+
                     beds = await tx.beds.findMany({
                         where: { rooms: { facility_id: facility.id } },
                     });
                 }
 
-                // 3. Create 20 sample Residents & Admissions
-                const residentsData = Array.from({ length: 20 }).map((_, idx) => {
-                    const firstNames = [
-                        "James",
-                        "Mary",
-                        "John",
-                        "Patricia",
-                        "Robert",
-                        "Jennifer",
-                        "Michael",
-                        "Linda",
-                        "William",
-                        "Elizabeth",
-                        "David",
-                        "Barbara",
-                        "Richard",
-                        "Susan",
-                        "Joseph",
-                        "Jessica",
-                        "Thomas",
-                        "Sarah",
-                        "Charles",
-                        "Karen",
-                    ];
-                    const lastNames = [
-                        "Smith",
-                        "Johnson",
-                        "Williams",
-                        "Brown",
-                        "Jones",
-                        "Garcia",
-                        "Miller",
-                        "Davis",
-                        "Rodriguez",
-                        "Martinez",
-                        "Hernandez",
-                        "Lopez",
-                        "Gonzalez",
-                        "Wilson",
-                        "Anderson",
-                        "Thomas",
-                        "Taylor",
-                        "Moore",
-                        "Jackson",
-                        "Martin",
-                    ];
+                // 3. Ensure Care Levels
+                const careLevelsData = [
+                    { levelCode: "INDEPENDENT_LIVING", levelName: "Tier 1 - Independent" },
+                    { levelCode: "ASSISTED_LIVING", levelName: "Tier 2 - Moderate Support" },
+                    { levelCode: "MEMORY_CARE", levelName: "Tier 3 - Memory Care" },
+                    { levelCode: "SKILLED_NURSING", levelName: "Tier 4 - Total Care" },
+                ];
+                const careLevelIds: bigint[] = [];
+                for (const cl of careLevelsData) {
+                    let level = await tx.care_levels.findFirst({ where: { level_code: cl.levelCode } });
+                    if (!level) {
+                        level = await tx.care_levels.create({
+                            data: { level_code: cl.levelCode, level_name: cl.levelName },
+                        });
+                    }
+                    careLevelIds.push(level.id);
+                }
 
-                    return {
-                        first_name: `${this.SAMPLE_PREFIX}${firstNames[idx % firstNames.length]}`,
-                        last_name: lastNames[idx % lastNames.length],
-                        date_of_birth: new Date(1940 + (idx % 10), idx % 12, (idx % 28) + 1),
-                        gender: idx % 2 === 0 ? "MALE" : "FEMALE",
-                        status: "ACTIVE",
-                        bed_id: beds[idx % beds.length].id,
-                    };
-                });
+                // 4. Create 50 Sample Residents & Admissions
+                const firstNames = [
+                    "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "William", "Elizabeth",
+                    "David", "Barbara", "Richard", "Susan", "Joseph", "Jessica", "Thomas", "Sarah", "Charles", "Karen",
+                    "Christopher", "Nancy", "Daniel", "Lisa", "Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra",
+                    "Donald", "Ashley", "Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
+                    "Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa", "Edward", "Deborah"
+                ];
+                const lastNames = [
+                    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+                    "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin",
+                    "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson",
+                    "Walker", "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+                    "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell", "Carter", "Roberts"
+                ];
 
-                const createdResidents: Array<{ id: string; first_name: string }> = [];
-                for (const res of residentsData) {
+                const createdResidents: Array<{ id: string; first_name: string; last_name: string }> = [];
+
+                for (let i = 0; i < 50; i++) {
+                    const bed = beds[i % beds.length];
+                    const gender = i % 2 === 0 ? "MALE" : "FEMALE";
+                    const status = i < 40 ? "ACTIVE" : i < 46 ? "PENDING" : "DISCHARGED";
+
                     const resident = await tx.residents.create({
                         data: {
-                            first_name: res.first_name,
-                            last_name: res.last_name,
-                            date_of_birth: res.date_of_birth,
-                            gender: res.gender,
-                            status: res.status,
-                            bed_id: res.bed_id,
+                            first_name: `${this.SAMPLE_PREFIX}${firstNames[i]}`,
+                            last_name: lastNames[i],
+                            date_of_birth: new Date(1935 + (i % 20), (i * 3) % 12, (i % 27) + 1),
+                            gender,
+                            marital_status: i % 3 === 0 ? "WIDOWED" : i % 2 === 0 ? "MARRIED" : "SINGLE",
+                            religion_preference: i % 4 === 0 ? "Catholic" : i % 3 === 0 ? "Protestant" : "None",
+                            status,
+                            bed_id: status === "ACTIVE" ? bed.id : null,
                             admissions: {
                                 create: {
                                     facility_id: facility.id,
-                                    admission_date: new Date(),
+                                    admission_date: new Date(Date.now() - (i + 1) * 15 * 24 * 60 * 60 * 1000),
                                 },
                             },
                         },
                     });
-                    createdResidents.push(resident);
+
+                    createdResidents.push({ id: resident.id, first_name: resident.first_name, last_name: resident.last_name });
                 }
 
-                // 4. Create 15 Care Plans
-                const goalsList = ["Maintain mobility", "Pain management", "Improve nutrition", "Social engagement", "Skin integrity"];
-                const interventionsList = [
-                    "Walk with assistance",
-                    "Administer prescribed pain relief",
-                    "Encourage high-protein diet",
-                    "Participate in daily activities",
-                    "Reposition every 2 hours",
-                ];
+                // 5. Create Vitals Signs for all Active Residents (3 entries each)
+                for (const resident of createdResidents.slice(0, 40)) {
+                    for (let v = 0; v < 3; v++) {
+                        const systolic = 115 + (v * 7) + (Math.floor(Math.random() * 15));
+                        const diastolic = 75 + (v * 4) + (Math.floor(Math.random() * 10));
+                        const hr = 68 + (v * 5) + Math.floor(Math.random() * 12);
+                        const temp = 97.8 + (v * 0.4) + Math.random() * 0.8;
+                        const spo2 = 95 + Math.floor(Math.random() * 5);
 
-                for (let i = 0; i < 15; i++) {
+                        await tx.vital_signs.create({
+                            data: {
+                                resident_id: resident.id,
+                                recorded_by: userId,
+                                blood_pressure_systolic: systolic,
+                                blood_pressure_diastolic: diastolic,
+                                heart_rate_bpm: hr,
+                                respiratory_rate: 16 + (v % 4),
+                                temperature_fahrenheit: Number(temp.toFixed(1)),
+                                spo2_percentage: spo2,
+                                pain_scale: v % 2 === 0 ? 0 : 2,
+                                notes: v === 0 ? "Routine morning vitals check" : "Post-medication vitals",
+                                recorded_at: new Date(Date.now() - (v * 8 * 60 * 60 * 1000)),
+                            },
+                        });
+                    }
+                }
+
+                // 6. Create Assessments & Care Level History
+                for (let i = 0; i < 35; i++) {
                     const resident = createdResidents[i];
-                    await tx.care_plans.create({
+                    const selectedCareLevelId = careLevelIds[i % careLevelIds.length];
+
+                    await tx.assessments.create({
                         data: {
                             resident_id: resident.id,
-                            created_by: userId,
-                            status: i % 2 === 0 ? "Approved" : "Draft",
-                            significant_change_flag: false,
-                            care_goals: {
-                                create: [{ description: goalsList[i % goalsList.length], status: "IN_PROGRESS" }],
-                            },
-                            care_interventions: {
-                                create: [{ description: interventionsList[i % interventionsList.length], assigned_role: "Nurse (RN/LPN)" }],
-                            },
+                            assessed_by: userId,
+                            suggested_care_level_id: selectedCareLevelId,
+                            confirmed_care_level_id: selectedCareLevelId,
+                            adl_total_score: 18 + (i % 10),
+                            is_overridden: false,
+                        },
+                    });
+
+                    await tx.resident_care_level_history.create({
+                        data: {
+                            resident_id: resident.id,
+                            care_level_id: selectedCareLevelId,
+                            start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
                         },
                     });
                 }
 
-                // 5. Ensure Incident Severities exist
-                const severities = ["LOW", "MEDIUM", "HIGH"];
+                // 7. Create 35 Care Plans, Goals, Interventions & Tasks
+                const goalsList = [
+                    "Maintain mobility and joint range of motion",
+                    "Effective pain management during daily activities",
+                    "Improve daily nutritional intake and weight control",
+                    "Encourage social interaction and cognitive activities",
+                    "Prevent skin integrity breakdown and pressure injury",
+                    "Assist with personal hygiene and self-care tasks"
+                ];
+
+                const interventionsList = [
+                    "Perform guided range-of-motion exercises twice daily",
+                    "Administer prescribed pain medication 30m before physical therapy",
+                    "Provide high-protein dietary supplements with meals",
+                    "Escort to daily group activities in the community hall",
+                    "Reposition every 2 hours while in bed; apply barrier cream",
+                    "Assist with bathing, dressing, and oral care each morning"
+                ];
+
+                for (let i = 0; i < 35; i++) {
+                    const resident = createdResidents[i];
+                    const cpStatus = i % 3 === 0 ? "Approved" : i % 3 === 1 ? "Draft" : "Active";
+
+                    const carePlan = await tx.care_plans.create({
+                        data: {
+                            resident_id: resident.id,
+                            created_by: userId,
+                            status: cpStatus,
+                            significant_change_flag: i % 7 === 0,
+                            care_goals: {
+                                create: [
+                                    { description: goalsList[i % goalsList.length], status: "IN_PROGRESS" },
+                                    { description: goalsList[(i + 1) % goalsList.length], status: "IN_PROGRESS" },
+                                ],
+                            },
+                            care_interventions: {
+                                create: [
+                                    { description: interventionsList[i % interventionsList.length], assigned_role: "Nurse (RN/LPN)" },
+                                    { description: interventionsList[(i + 1) % interventionsList.length], assigned_role: "CNA" },
+                                ],
+                            },
+                        },
+                        include: { care_interventions: true },
+                    });
+
+                    // Add Care Tasks for each intervention
+                    for (const intervention of carePlan.care_interventions) {
+                        await tx.care_tasks.create({
+                            data: {
+                                care_intervention_id: intervention.id,
+                                assigned_cna_id: userId,
+                                task_type: "BEDSIDE_CARE",
+                                scheduled_time: new Date(Date.now() + (i % 12) * 60 * 60 * 1000),
+                                status: i % 2 === 0 ? "PENDING" : "COMPLETED",
+                                completed_at: i % 2 === 0 ? null : new Date(),
+                            },
+                        });
+                    }
+                }
+
+                // 8. Ensure Incident Severities
+                const severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
                 const severityIds: Record<string, bigint> = {};
                 for (const sev of severities) {
-                    let severity = await tx.incident_severities.findFirst({
-                        where: { level_name: sev },
-                    });
+                    let severity = await tx.incident_severities.findFirst({ where: { level_name: sev } });
                     if (!severity) {
                         severity = await tx.incident_severities.create({
                             data: {
                                 level_name: sev,
-                                chart_lock_trigger: sev === "HIGH",
+                                chart_lock_trigger: ["HIGH", "CRITICAL"].includes(sev),
+                                description: `${sev} level severity incident`,
                             },
                         });
                     }
                     severityIds[sev] = severity.id;
                 }
 
-                // 6. Create 8 Incidents
-                const incidentTypes = ["FALL", "MEDICATION_ERROR", "BEHAVIORAL", "WOUND_ISSUE"];
-                for (let i = 0; i < 8; i++) {
+                // 9. Create 20 Incidents
+                const incidentTypes = ["FALL", "MEDICATION_ERROR", "BEHAVIORAL", "WOUND_ISSUE", "EQUIPMENT_FAILURE"];
+                for (let i = 0; i < 20; i++) {
                     const resident = createdResidents[i % createdResidents.length];
-                    const severityName = i % 3 === 2 ? "HIGH" : i % 3 === 1 ? "MEDIUM" : "LOW";
+                    const severityName = severities[i % severities.length];
+                    const incStatus = i % 4 === 0 ? "OPEN" : i % 4 === 1 ? "UNDER_INVESTIGATION" : i % 4 === 2 ? "PENDING_REVIEW" : "RESOLVED";
 
-                    await tx.incidents.create({
+                    const incident = await tx.incidents.create({
                         data: {
                             incident_type: incidentTypes[i % incidentTypes.length],
-                            description: `[Demo] Sample incident description for ${resident.first_name}.`,
+                            description: `[Demo] ${severityName} severity incident reported for ${resident.first_name} ${resident.last_name}. Requires monitoring.`,
                             resident_id: resident.id,
                             reported_by: userId,
                             severity_id: severityIds[severityName],
-                            sla_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h deadline
-                            status: "OPEN",
+                            sla_deadline: new Date(Date.now() + (24 + (i % 12)) * 60 * 60 * 1000),
+                            status: incStatus,
                         },
                     });
+
+                    // Add progress note
+                    await tx.clinical_records.create({
+                        data: {
+                            resident_id: resident.id,
+                            recorded_by: userId,
+                            record_type: "INCIDENT_NOTE",
+                            description: JSON.stringify({
+                                incidentId: incident.id,
+                                note: `Initial assessment completed for ${incident.incident_type}. Vital signs stable.`,
+                                noteType: "PROGRESS",
+                            }),
+                        },
+                    });
+
+                    // Add Lock Event if High/Critical
+                    if (["HIGH", "CRITICAL"].includes(severityName)) {
+                        await tx.residents.update({
+                            where: { id: resident.id },
+                            data: { is_chart_locked: true },
+                        });
+
+                        await tx.chart_lock_events.create({
+                            data: {
+                                incident_id: incident.id,
+                                locked_by_system: true,
+                                lock_reason: `${severityName} severity incident automatically locked the chart`,
+                            },
+                        });
+                    }
                 }
 
-                // 7. Create 40 Medications
-                const drugs = ["Aspirin", "Metformin", "Lisinopril", "Atorvastatin", "Amlodipine", "Levothyroxine", "Gabapentin", "Omeprazole", "Furosemide", "Metoprolol"];
-                const frequencies = ["Once daily", "Twice daily", "PRN (As needed)", "Every morning"];
+                // 10. Create 60 Medication Orders
+                const drugs = [
+                    { name: "Aspirin", dose: "81 mg", route: "PO (Oral)", freq: "Once daily" },
+                    { name: "Metformin", dose: "500 mg", route: "PO (Oral)", freq: "Twice daily with meals" },
+                    { name: "Lisinopril", dose: "10 mg", route: "PO (Oral)", freq: "Once daily in morning" },
+                    { name: "Atorvastatin", dose: "20 mg", route: "PO (Oral)", freq: "At bedtime" },
+                    { name: "Amlodipine", dose: "5 mg", route: "PO (Oral)", freq: "Once daily" },
+                    { name: "Levothyroxine", dose: "50 mcg", route: "PO (Oral)", freq: "Once daily before breakfast" },
+                    { name: "Gabapentin", dose: "300 mg", route: "PO (Oral)", freq: "Three times daily" },
+                    { name: "Omeprazole", dose: "20 mg", route: "PO (Oral)", freq: "Once daily before meals" },
+                    { name: "Furosemide", dose: "40 mg", route: "PO (Oral)", freq: "Once daily in morning" },
+                    { name: "Metoprolol Succinate", dose: "25 mg", route: "PO (Oral)", freq: "Once daily" },
+                ];
 
-                for (let i = 0; i < 40; i++) {
+                for (let i = 0; i < 60; i++) {
                     const resident = createdResidents[i % createdResidents.length];
-                    await tx.medication_orders.create({
+                    const drug = drugs[i % drugs.length];
+
+                    const order = await tx.medication_orders.create({
                         data: {
                             resident_id: resident.id,
                             prescribed_by: userId,
-                            drug_name: drugs[i % drugs.length],
-                            dosage: `${((i % 3) + 1) * 5} mg`,
-                            route: "PO (Oral)",
-                            frequency: frequencies[i % frequencies.length],
+                            drug_name: drug.name,
+                            dosage: drug.dose,
+                            route: drug.route,
+                            frequency: drug.freq,
+                            is_controlled_substance: i % 10 === 0,
                             status: "ACTIVE",
                         },
                     });
+
+                    // Add Medication Log
+                    await tx.medication_logs.create({
+                        data: {
+                            order_id: order.id,
+                            administered_by: userId,
+                            status: "GIVEN",
+                            is_clinically_justified: true,
+                        },
+                    });
                 }
-            });
+
+                // 11. Create Invoices & Line Items (20 Invoices)
+                for (let i = 0; i < 20; i++) {
+                    const resident = createdResidents[i];
+                    const baseAmount = 4500.00 + (i * 150);
+                    const medicare = baseAmount * 0.6;
+                    const patientResp = baseAmount * 0.4;
+
+                    const invoice = await tx.invoices.create({
+                        data: {
+                            resident_id: resident.id,
+                            billing_period_start: new Date("2026-06-01"),
+                            billing_period_end: new Date("2026-06-30"),
+                            total_amount: baseAmount,
+                            medicare_covered_amount: medicare,
+                            patient_responsibility_amount: patientResp,
+                            status: i % 3 === 0 ? "PAID" : i % 3 === 1 ? "ISSUED" : "DRAFT",
+                            due_date: new Date("2026-07-31"),
+                        },
+                    });
+
+                    await tx.invoice_line_items.createMany({
+                        data: [
+                            { invoice_id: invoice.id, description: "Monthly Room & Board (Semi-Private)", item_type: "ROOM_BOARD", amount: 3200.00 },
+                            { invoice_id: invoice.id, description: "Skilled Nursing & ADL Care Level 2", item_type: "CARE_LEVEL", amount: 1000.00 },
+                            { invoice_id: invoice.id, description: "Medication Administration & Supplies", item_type: "SUPPLIES", amount: 300.00 },
+                        ],
+                    });
+                }
+            }, { timeout: 60000 });
 
             const stats = await this.getStatus();
             return {
                 success: true,
-                message: "Demo data seeded successfully",
+                message: "Demo data seeded successfully with abundant records",
                 data: {
                     usersCreated: 0,
                     residentsCreated: stats.recordCounts.residents,
-                    staffCreated: 0,
+                    carePlansCreated: stats.recordCounts.carePlans,
                     incidentsCreated: stats.recordCounts.incidents,
+                    medicationsCreated: stats.recordCounts.medications,
                     seededAt: stats.lastSeededAt,
                 },
             };
@@ -313,97 +459,49 @@ export class DemoDataService {
         }
     }
 
-    async loadDataset(dataset: string, userId: string) {
-        // Determine target entity
-        // In NestJS we can also support load individual dataset if needed
-        // However, since they have dependencies (Care plans -> Residents, etc.),
-        // we should seed them sequentially or collectively.
-        // For simplicity, we can load individual or just route it to seedAll.
-        if (dataset === "residents") {
-            // Just seed everything as they are related
-            return this.seedAll(userId);
-        }
+    async loadDataset(_dataset: string, userId: string) {
         return this.seedAll(userId);
     }
 
     async clearAll() {
         try {
             await this.prisma.$transaction(async (tx) => {
-                // Clear related child entities first to avoid FK constraints
+                // Delete child relations first
+                await tx.invoice_line_items.deleteMany({});
+                await tx.payments.deleteMany({});
+                await tx.invoices.deleteMany({});
 
-                // 1. Delete incident relation entities
-                await tx.chart_lock_events.deleteMany({
-                    where: { incidents: { description: { startsWith: "[Demo]" } } },
-                });
-                await tx.incidents.deleteMany({
-                    where: { description: { startsWith: "[Demo]" } },
-                });
+                await tx.chart_lock_events.deleteMany({});
+                await tx.incidents.deleteMany({});
 
-                // 2. Delete medication relation entities
-                await tx.medication_logs.deleteMany({
-                    where: { medication_orders: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.medication_schedules.deleteMany({
-                    where: { medication_orders: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.medication_orders.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
+                await tx.medication_logs.deleteMany({});
+                await tx.medication_schedules.deleteMany({});
+                await tx.medication_orders.deleteMany({});
 
-                // 3. Delete Care Plan relation entities
-                await tx.care_tasks.deleteMany({
-                    where: { care_interventions: { care_plans: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } } },
-                });
-                await tx.care_interventions.deleteMany({
-                    where: { care_plans: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.care_goals.deleteMany({
-                    where: { care_plans: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.care_plan_reviews.deleteMany({
-                    where: { care_plans: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.care_plan_signatures.deleteMany({
-                    where: { care_plans: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.idt_acknowledgments.deleteMany({
-                    where: { care_plans: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } } },
-                });
-                await tx.care_plans.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
+                await tx.care_tasks.deleteMany({});
+                await tx.care_interventions.deleteMany({});
+                await tx.care_goals.deleteMany({});
+                await tx.care_plan_reviews.deleteMany({});
+                await tx.care_plan_signatures.deleteMany({});
+                await tx.idt_acknowledgments.deleteMany({});
+                await tx.care_plans.deleteMany({});
 
-                // 4. Delete Admissions and Residents
-                await tx.admissions.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.clinical_records.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.vital_signs.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.resident_care_level_history.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.resident_contacts.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.resident_insurance_policies.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.resident_sensitive_info.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
-                await tx.pre_admission_screenings.deleteMany({
-                    where: { residents: { first_name: { startsWith: this.SAMPLE_PREFIX } } },
-                });
+                await tx.vital_signs.deleteMany({});
+                await tx.assessment_details.deleteMany({});
+                await tx.assessments.deleteMany({});
 
-                // Remove residents
+                await tx.admissions.deleteMany({});
+                await tx.clinical_records.deleteMany({});
+                await tx.resident_care_level_history.deleteMany({});
+                await tx.resident_contacts.deleteMany({});
+                await tx.resident_insurance_policies.deleteMany({});
+                await tx.resident_sensitive_info.deleteMany({});
+                await tx.pre_admission_screenings.deleteMany({});
+
                 await tx.residents.deleteMany({
                     where: { first_name: { startsWith: this.SAMPLE_PREFIX } },
                 });
-            });
+            }, { timeout: 60000 });
 
             return { success: true, message: "Demo data cleared successfully" };
         } catch (error: any) {
@@ -413,7 +511,6 @@ export class DemoDataService {
     }
 
     async clearDataset(_dataset: string) {
-        // If clearing specific, we will route to clearAll since they are linked.
         return this.clearAll();
     }
 }

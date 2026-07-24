@@ -58,7 +58,8 @@ export class DemoDataController {
 
     private checkAdmin(req: any) {
         const role = req.user?.role;
-        if (role !== "System Admin") {
+        const adminRoles = ["System Admin", "Administrator"];
+        if (!adminRoles.includes(role)) {
             throw new ForbiddenException("Only administrators can perform this action");
         }
     }

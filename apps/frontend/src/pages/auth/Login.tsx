@@ -19,7 +19,7 @@ export function Login() {
         if (!cleanEmail) {
             newErrors.email = "Email or Phone number is required";
         } else if (cleanEmail.includes("@")) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const emailRegex = /^[^\s@]+@[^\s@]+$/;
             if (!emailRegex.test(cleanEmail)) {
                 newErrors.email = "Email format must be valid (e.g. admin@facility.org)";
             }
@@ -31,6 +31,12 @@ export function Login() {
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    const handleQuickFill = (demoEmail: string, demoPass: string) => {
+        setEmailOrPhone(demoEmail);
+        setPassword(demoPass);
+        setErrors({});
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -58,7 +64,6 @@ export function Login() {
                 }
 
                 if (response.data.twoStepRequired) {
-                    // Show demo OTP briefly before redirecting
                     if (response.data.tempCode) {
                         setDemoCode(response.data.tempCode);
                     }
@@ -85,6 +90,14 @@ export function Login() {
         }
     };
 
+    const demoAccounts = [
+        { label: "Admin", email: "admin@facility.org", pass: "Password123!" },
+        { label: "DON", email: "don@facility.org", pass: "Password123!" },
+        { label: "Nurse", email: "nurse@facility.org", pass: "Password123!" },
+        { label: "CNA", email: "cna@facility.org", pass: "Password123!" },
+        { label: "Admission", email: "admission@facility.org", pass: "Password123!" },
+    ];
+
     return (
         <AuthLayout>
             <div className="mb-6 w-full text-center">
@@ -100,6 +113,23 @@ export function Login() {
                 </div>
             )}
 
+            {/* Quick Demo Credentials Buttons */}
+            <div className="mb-4 w-full rounded-xl border border-blue-100 bg-blue-50/70 p-3">
+                <span className="block mb-2 text-[11px] font-bold text-blue-900">Demo Accounts (1-Click Fill):</span>
+                <div className="flex flex-wrap gap-1.5">
+                    {demoAccounts.map((acc) => (
+                        <button
+                            key={acc.label}
+                            type="button"
+                            onClick={() => handleQuickFill(acc.email, acc.pass)}
+                            className="px-2.5 py-1 text-xs font-semibold bg-white border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
+                        >
+                            {acc.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
                 {/* Email or Phone field */}
                 <div className="flex flex-col gap-1">
@@ -109,7 +139,7 @@ export function Login() {
                         className={`w-full rounded-xl border px-4 py-3 text-sm transition-all outline-none focus:ring-2 ${
                             errors.email ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
                         }`}
-                        placeholder="name@facility.org or +1 555 000 1234"
+                        placeholder="admin@facility.org"
                         value={emailOrPhone}
                         onChange={(e) => setEmailOrPhone(e.target.value)}
                         disabled={isLoading}
@@ -121,9 +151,6 @@ export function Login() {
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-700">Password</label>
-                        <a href="#" className="text-xs font-semibold text-blue-600 hover:underline">
-                            Forgot password?
-                        </a>
                     </div>
                     <input
                         type="password"
@@ -148,14 +175,8 @@ export function Login() {
                 </button>
             </form>
 
-            {/* Footer Info */}
-            <div className="mt-8 px-2 text-center text-[10px] leading-relaxed font-medium text-slate-400">
-                Accounts are provisioned by your administrator.
-                <br />
-                Need access?{" "}
-                <a href="#" className="font-bold text-blue-600 hover:underline">
-                    Contact your NHMS admin.
-                </a>
+            <div className="mt-6 px-2 text-center text-[10px] leading-relaxed font-medium text-slate-400">
+                Default Password for all demo accounts: <code className="font-bold text-slate-600">Password123!</code>
             </div>
         </AuthLayout>
     );
