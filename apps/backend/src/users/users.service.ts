@@ -1,12 +1,19 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import * as crypto from "crypto";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { CreateUserDto } from "./dto/create-user.dto.js";
 import { UpdateUserDto } from "./dto/update-user.dto.js";
 import { UpdateStatusDto } from "./dto/update-status.dto.js";
+import { MailService } from "../mail/mail.service.js";
+
+export const activationStore = new Map<string, { email: string; expiredAt: Date }>();
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly mailService: MailService,
+    ) {}
 
     // Helper to serialize BigInts
     private serializeBigInt(obj: any): any {
@@ -80,6 +87,16 @@ export class UsersService {
             throw new BadRequestException("Email is already registered");
         }
 
+        // Generate activation token
+        const activationToken = crypto.randomBytes(32).toString("hex");
+        const activationTokenExpiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        // Store token in memory map instead of DB
+        activationStore.set(activationToken, {
+            email: createUserDto.email.toLowerCase(),
+            expiredAt: activationTokenExpiredAt,
+        });
+
         // Since we don't handle passwords here, we use a placeholder hash
         const placeholderHash = "$2b$10$xyz123placeholderhashthatlookslikebcrypt";
 
@@ -89,10 +106,11 @@ export class UsersService {
                 firstName: createUserDto.firstName,
                 lastName: createUserDto.lastName,
                 email: createUserDto.email.toLowerCase(),
-                phoneNumber: createUserDto.phoneNumber,
-                status: createUserDto.status,
+                phoneNumber: null,
+                status: "INACTIVE",
                 roleId: BigInt(createUserDto.roleId),
                 passwordHash: placeholderHash,
+                licenseNumber: activationToken,
                 ...(createUserDto.facilityId && createUserDto.facilityId !== "None"
                     ? {
                           facilities: {
@@ -106,6 +124,13 @@ export class UsersService {
             },
             include: { role: true, facilities: true },
         });
+
+        const fullName = `${user.firstName} ${user.lastName}`;
+        try {
+            await this.mailService.sendInvitation(user.email, fullName, activationToken);
+        } catch (error) {
+            console.error(`Failed to send invitation email to ${user.email}:`, error);
+        }
 
         return this.serializeBigInt(user);
     }

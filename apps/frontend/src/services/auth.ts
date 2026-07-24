@@ -46,6 +46,12 @@ export const authService = {
         return data;
     },
 
+    /** GET /api/auth/activate?token=... */
+    async getActivateContext(token: string): Promise<ApiResponse<{ email: string; phoneNumber?: string }>> {
+        const { data } = await apiClient.get<ApiResponse<{ email: string; phoneNumber?: string }>>(`/auth/activate?token=${token}`);
+        return data;
+    },
+
     /** GET /api/auth/me — requires Bearer token (added via interceptor automatically) */
     async getMe(): Promise<ApiResponse<User>> {
         const { data } = await apiClient.get<ApiResponse<User>>("/auth/me");

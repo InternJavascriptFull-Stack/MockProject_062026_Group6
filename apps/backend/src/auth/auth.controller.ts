@@ -34,16 +34,30 @@ export class AuthController {
         return this.authService.resendOtp(dto);
     }
 
-    // GET /api/auth/activate?email=...&code=...
+    // GET /api/auth/activate?email=...&code=... OR /api/auth/activate?token=...
     @Get("activate")
-    async getActivateContext(@Query("email") email: string, @Query("code") code: string) {
-        return this.authService.getActivateContext(email, code);
+    async getActivateContext(
+        @Query("email") email?: string,
+        @Query("code") code?: string,
+        @Query("token") token?: string,
+    ) {
+        if (token) {
+            return this.authService.getActivateContextByToken(token);
+        }
+        return this.authService.getActivateContext(email || "", code || "");
     }
 
-    // GET /api/auth/activate-context?email=...&code=...
+    // GET /api/auth/activate-context?email=...&code=... OR /api/auth/activate-context?token=...
     @Get("activate-context")
-    async getActivateContextOnly(@Query("email") email: string, @Query("code") code: string) {
-        return this.authService.getActivateContext(email, code);
+    async getActivateContextOnly(
+        @Query("email") email?: string,
+        @Query("code") code?: string,
+        @Query("token") token?: string,
+    ) {
+        if (token) {
+            return this.authService.getActivateContextByToken(token);
+        }
+        return this.authService.getActivateContext(email || "", code || "");
     }
 
     // POST /api/auth/activate

@@ -25,7 +25,7 @@ const STATUS = {
 } as const;
 
 function isOtpBypassEnabled(): boolean {
-    return true; // Disable OTP verification completely on login
+    return false; // Disable OTP verification completely on login
 }
 
 /** Returns true if account has not been activated yet (SC_001). */
@@ -324,6 +324,29 @@ export class AuthService {
         };
     }
 
+    async getActivateContextByToken(token: string) {
+        const user = await this.prisma.user.findFirst({
+            where: { licenseNumber: token, isDeleted: false },
+        });
+
+        if (!user || !isUnactivated(user.status)) {
+            throw new BadRequestException("Invalid or expired activation link.");
+        }
+
+        const ageMs = Date.now() - user.createdAt.getTime();
+        if (ageMs > 24 * 60 * 60 * 1000) {
+            throw new BadRequestException("Invalid or expired activation link.");
+        }
+
+        return {
+            success: true,
+            data: {
+                email: user.email,
+                phoneNumber: user.phoneNumber ?? null,
+            },
+        };
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // 4b. ACTIVATE ACCOUNT  —  POST /api/auth/activate
     //
@@ -353,6 +376,18 @@ export class AuthService {
         const finalPhone = phoneNumber?.trim() || user.phoneNumber?.trim() || "";
         if (!finalPhone) {
             throw new BadRequestException("Phone number is required for activation.");
+        }
+
+        // Validate phone number is unique
+        const existingPhone = await this.prisma.user.findFirst({
+            where: {
+                phoneNumber: finalPhone,
+                id: { not: user.id },
+                isDeleted: false,
+            },
+        });
+        if (existingPhone) {
+            throw new BadRequestException("Phone number is already registered by another user.");
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
